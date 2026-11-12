@@ -1,7 +1,8 @@
 import sys, os, json, base64, urllib.request, wave
 voice, out, model = sys.argv[1], sys.argv[2], sys.argv[3]
 d = os.path.dirname(os.path.abspath(out)); txt = open(sys.argv[4]).read().strip(); style = open(sys.argv[5]).read().strip()
-body = {"contents": [{"parts": [{"text": style + "\n\n" + txt}]}],
+prompt = "# AUDIO PROFILE\nNarrateur francophone de mini-documentaire.\n\n## DIRECTOR'S NOTES\n" + style + "\nNe lis à voix haute que le texte placé sous TRANSCRIPT.\n\n## TRANSCRIPT\n" + txt
+body = {"contents": [{"parts": [{"text": prompt}]}],
         "generationConfig": {"responseModalities": ["AUDIO"], "speechConfig": {"voiceConfig": {"prebuiltVoiceConfig": {"voiceName": voice}}}}}
 req = urllib.request.Request(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent", json.dumps(body).encode(),
                              {"Content-Type": "application/json", "x-goog-api-key": os.environ["GEMINI_API_KEY"]})
