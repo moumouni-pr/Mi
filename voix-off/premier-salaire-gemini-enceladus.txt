@@ -1,0 +1,47 @@
+=== INSTRUCTIONS DE STYLE (champ « Style instructions » dans AI Studio) ===
+Lis ce texte en français, comme un narrateur de storytelling pédagogique : voix claire, naturelle et posée.
+Les indications entre crochets indiquent le ton à prendre pour le passage qui suit : applique-les, mais ne les lis JAMAIS à voix haute.
+Marque une vraie pause sur les points de suspension. Pour la réplique de Monsieur Diallo, prends une voix calme et sage.
+
+=== TEXTE (champ texte, voix : Enceladus) ===
+[Ton interrogatif, avec curiosité] Et si ton premier salaire était aussi le début de tes difficultés financières ? Est-ce que gagner de l'argent signifie forcément savoir le gérer ?
+
+[Ton narratif, posé] Voici l'histoire d'Ibrahim, un jeune homme de 25 ans qui vient de décrocher son premier emploi comme assistant logisticien dans une entreprise à Niamey. Son salaire mensuel est de 150 000 francs CFA.
+
+[Ton enthousiaste, légèrement souriant] Pour Ibrahim, c'est une nouvelle vie qui commence ! Enfin, il peut se faire plaisir, s'acheter de beaux vêtements, changer de téléphone et sortir avec ses amis. Il n'oublie pas non plus sa famille : chaque mois, il envoie de l'argent à ses parents et répond aux sollicitations de ses proches.
+
+[Ton rapide, avec une pointe d'ironie] Le téléphone ? Il peut l'acheter ! Les vêtements ? Aucun problème ! Les sorties du week-end ? Il est toujours partant ! Et quand un proche lui demande de l'aide, Ibrahim trouve toujours quelque chose à donner.
+
+[Petite pause, puis ton plus sérieux] Mais après six mois de travail, un événement va lui faire prendre conscience de son erreur.
+
+[Ton grave et émotionnel] Un jour, il apprend que sa mère a besoin de soins médicaux urgents. Les dépenses s'élèvent à 200 000 francs CFA. Ibrahim fouille alors dans son compte bancaire, vérifie son portefeuille… mais rien ! Il n'a pas suffisamment d'argent pour faire face à cette situation.
+
+[Ton triste, avec déception] Lui qui travaillait depuis six mois, qui recevait son salaire chaque fin de mois, se retrouve obligé d'emprunter de l'argent à un collègue pour aider sa propre mère.
+
+[Pause, puis ton réfléchi] C'est à ce moment qu'il rencontre Monsieur Diallo, son ancien professeur, qui lui pose une question toute simple :
+
+[Ton calme et sage, comme un conseiller] « Ibrahim, tu travailles depuis six mois. Tu paies tes factures, tu aides ta famille, tu te fais plaisir… Mais dis-moi, est-ce que tu as pensé à te payer toi-même ? »
+
+[Ton surpris, puis interrogatif] Se payer lui-même ? Ibrahim ne comprend pas vraiment.
+
+[Ton pédagogique et posé] Monsieur Diallo lui explique alors qu'une personne qui dépense tout son salaire sans rien mettre de côté travaille uniquement pour satisfaire ses besoins immédiats. Il lui conseille de commencer par suivre toutes ses dépenses afin de comprendre où part réellement son argent.
+
+[Ton de révélation, légèrement appuyé] Et là, surprise ! Ibrahim découvre qu'il dépense près de 40 000 francs CFA chaque mois dans de petites dépenses qu'il ne remarque même pas.
+
+[Ton encourageant et déterminé] À partir de ce jour, il décide de changer ses habitudes. Désormais, dès qu'il reçoit son salaire, il met 30 000 francs CFA de côté avant même de commencer à dépenser.
+
+[Ton motivant, avec assurance] En douze mois, cela représente 360 000 francs CFA d'épargne ! Bien sûr, certains mois, il ne parvient à économiser que 10 000 francs. Mais il se fixe une règle : ne jamais terminer le mois sans avoir épargné quelque chose.
+
+[Ton pédagogique, bien articulé] De cette histoire, nous pouvons retenir quatre leçons importantes.
+
+Premièrement : suis tes dépenses. Tu ne peux pas maîtriser ton argent si tu ne sais pas où il part.
+
+Deuxièmement : paie-toi en premier. N'attends pas la fin du mois pour épargner ce qui reste.
+
+Troisièmement : constitue une épargne de précaution avant de penser aux achats qui ne sont pas indispensables.
+
+Quatrièmement : aide ta famille, mais fixe-toi un budget. Aider les autres ne doit pas signifier sacrifier totalement ton avenir financier.
+
+[Ton inspirant et légèrement solennel] N'oublie jamais : ce n'est pas seulement le montant de ton salaire qui détermine ton avenir financier, mais surtout la manière dont tu le gères.
+
+[Ton complice, direct et engageant] Et toi, sur ton salaire mensuel, combien arrives-tu réellement à économiser ? Dis-le-nous en commentaire et partage cette vidéo avec une personne qui vient de décrocher son premier emploi !
