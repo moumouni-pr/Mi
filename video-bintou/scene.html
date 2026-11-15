@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1920px;overflow:hidden;background:#fff}
+body{font-family:Inter,'DejaVu Sans',sans-serif;color:#1f2a44}
+#stage{position:absolute;inset:0;overflow:hidden}
+.abs{position:absolute;left:0;top:0;transform-origin:50% 50%;will-change:transform}
+.cap{position:absolute;left:60px;right:60px;top:110px;min-height:250px;background:#fff;border-radius:34px;
+ box-shadow:0 14px 0 rgba(31,42,68,.08),0 4px 30px rgba(31,42,68,.10);padding:38px 46px;display:flex;align-items:center;justify-content:center;text-align:center}
+.cap p{font-size:54px;font-weight:800;line-height:1.22;letter-spacing:-.5px}
+.cap .k1{color:#f08a24}.cap .k2{color:#1aa37a}.cap .k3{color:#e5484d}.cap .k4{color:#5b5bd6}
+.w{display:inline-block;transition:none}
+.badge{position:absolute;padding:16px 34px;border-radius:999px;font-weight:800;font-size:44px;color:#fff;white-space:nowrap;box-shadow:0 8px 0 rgba(0,0,0,.12)}
+.card{position:absolute;background:#fff;border-radius:30px;box-shadow:0 10px 0 rgba(31,42,68,.08),0 4px 24px rgba(31,42,68,.12);padding:30px 36px}
+.brand{position:absolute;left:60px;top:44px;font-size:30px;font-weight:800;letter-spacing:1px;color:#1f2a44;opacity:.75}
+.brand b{color:#f08a24}
+.bar{position:absolute;left:0;top:0;height:10px;background:#f08a24}
+</style></head>
+<body><div id="stage"></div>
+<script>
+// ---------- timing helpers ----------
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+const lerp=(a,b,x)=>a+(b-a)*x;
+const eOut=x=>1-Math.pow(1-clamp(x),3);
+const eInOut=x=>{x=clamp(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2};
+const back=x=>{x=clamp(x);const c1=1.9,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2)};
+const prog=(t,t0,d=.45)=>clamp((t-t0)/d);
+// pop-in scale + fade for an element that appears at t0 (and optionally leaves at t1)
+function pop(t,t0,t1=1e9,d=.45){const i=prog(t,t0,d),o=1-prog(t,t1,.3);return {s:i<=0?0:back(i)*(o<1?lerp(.6,1,o):1),o:Math.min(clamp(i*2.5),o)}}
+function rise(t,t0,t1=1e9,dist=60,d=.5){const i=eOut(prog(t,t0,d)),o=1-prog(t,t1,.3);return {y:(1-i)*dist,o:Math.min(i,o)}}
+// absolute placed element: center at (x,y)
+function at(x,y,html,{s=1,o=1,r=0,w=null,ty=0,tx=0}={}){if(o<=0.001)return '';
+ return `<div class="abs" style="left:${x}px;top:${y}px;transform:translate(-50%,-50%) translate(${tx}px,${ty}px) rotate(${r}deg) scale(${s});opacity:${o};${w?`width:${w}px;`:''}">${html}</div>`}
+
+// ---------- palette ----------
+const C={ink:'#1f2a44',orange:'#f08a24',green:'#1aa37a',red:'#e5484d',violet:'#5b5bd6',blue:'#3b82f6',skin:'#7a4a2b',skinD:'#5e361d',yellow:'#ffc83d'};
+
+// ---------- characters ----------
+// pose: arms angles in degrees (0 = straight down, positive = outward), elbow-less arms
+// mood: smile | big | sad | worried | surprised | neutral | talk
+function person(o={}){
+ const p=Object.assign({skin:C.skin,shirt:'#1aa37a',shirt2:'#14805f',pants:'#2b3a67',hair:'#1b1b1b',shoes:'#20263a',
+   la:12,ra:-12,mood:'smile',blink:false,talk:0,kind:'man',look:0,item:'',vest:false,tie:false,glasses:false,grey:false,wrap:'',badge:false},o);
+ const eyeY=48, ex=p.look*3;
+ const eyes=p.blink?`<path d="M-22 ${eyeY} h12 M10 ${eyeY} h12" stroke="#1b1b1b" stroke-width="4" stroke-linecap="round"/>`:
+  `<ellipse cx="-16" cy="${eyeY}" rx="9" ry="${p.mood==='surprised'?12:10}" fill="#fff"/><ellipse cx="16" cy="${eyeY}" rx="9" ry="${p.mood==='surprised'?12:10}" fill="#fff"/>
+   <circle cx="${-15+ex}" cy="${eyeY+1}" r="5.2" fill="#1b1b1b"/><circle cx="${17+ex}" cy="${eyeY+1}" r="5.2" fill="#1b1b1b"/>
+   <circle cx="${-13+ex}" cy="${eyeY-1}" r="1.8" fill="#fff"/><circle cx="${19+ex}" cy="${eyeY-1}" r="1.8" fill="#fff"/>`;
+ const brows={sad:`<path d="M-26 32 L-8 28 M26 32 L8 28" stroke="#1b1b1b" stroke-width="4.5" stroke-linecap="round"/>`,
+  worried:`<path d="M-26 30 L-8 34 M26 30 L8 34" stroke="#1b1b1b" stroke-width="4.5" stroke-linecap="round" transform="scale(1,-1) translate(0,-64)"/>`,
+  surprised:`<path d="M-25 26 Q-16 19 -7 26 M25 26 Q16 19 7 26" stroke="#1b1b1b" stroke-width="4.5" fill="none" stroke-linecap="round"/>`}[p.mood]||
+  `<path d="M-25 31 Q-16 26 -7 31 M25 31 Q16 26 7 31" stroke="#1b1b1b" stroke-width="4.5" fill="none" stroke-linecap="round"/>`;
+ let mouth;
+ if(p.talk>0){const h=4+p.talk*12;mouth=`<ellipse cx="0" cy="72" rx="9" ry="${h/2}" fill="#5a1e1e"/>`}
+ else mouth={smile:`<path d="M-12 68 Q0 79 12 68" stroke="#3a1a10" stroke-width="4.5" fill="none" stroke-linecap="round"/>`,
+  big:`<path d="M-15 66 Q0 86 15 66 Z" fill="#5a1e1e"/><path d="M-11 67 Q0 71 11 67" stroke="#fff" stroke-width="4" fill="none"/>`,
+  sad:`<path d="M-11 76 Q0 67 11 76" stroke="#3a1a10" stroke-width="4.5" fill="none" stroke-linecap="round"/>`,
+  worried:`<path d="M-11 74 Q-5 70 0 74 Q5 78 11 73" stroke="#3a1a10" stroke-width="4.5" fill="none" stroke-linecap="round"/>`,
+  surprised:`<ellipse cx="0" cy="73" rx="8" ry="10" fill="#5a1e1e"/>`,
+  neutral:`<path d="M-9 71 H9" stroke="#3a1a10" stroke-width="4.5" stroke-linecap="round"/>`}[p.mood]||'';
+ let hair;
+ if(p.kind==='woman'){hair=`<path d="M-50 40 Q-56 -12 0 -16 Q56 -12 50 40 Q46 6 0 4 Q-46 6 -50 40Z" fill="${p.wrap||'#8b3fd1'}"/>
+   <path d="M-46 8 Q0 -40 46 8 Q30 -6 0 -4 Q-30 -6 -46 8Z" fill="${p.wrap||'#8b3fd1'}"/><circle cx="38" cy="-6" r="16" fill="${p.wrap||'#8b3fd1'}"/>`}
+ else if(p.grey){hair=`<path d="M-44 30 Q-46 -6 0 -8 Q46 -6 44 30 Q38 14 26 12 Q0 4 -26 12 Q-38 14 -44 30Z" fill="#cfd3dc"/>`}
+ else hair=`<path d="M-44 34 Q-48 -10 0 -10 Q48 -10 44 34 Q42 14 30 12 Q0 2 -30 12 Q-42 14 -44 34Z" fill="${p.hair}"/>`;
+ const glasses=p.glasses?`<g fill="none" stroke="#1f2a44" stroke-width="3.5"><circle cx="-16" cy="${eyeY}" r="14"/><circle cx="16" cy="${eyeY}" r="14"/><path d="M-2 ${eyeY} h4"/></g>`:'';
+ const arm=(side,ang,color)=>{const sx=side*42;return `<g transform="translate(${sx} 118) rotate(${-side*ang})">
+   <rect x="-12" y="-8" width="24" height="96" rx="12" fill="${color}"/><circle cx="0" cy="92" r="13" fill="${p.skin}"/></g>`};
+ const torso=p.kind==='woman'
+  ?`<path d="M-44 110 Q-46 100 -34 98 L34 98 Q46 100 44 110 L58 250 Q0 262 -58 250Z" fill="${p.shirt}"/>
+    <path d="M-50 170 Q0 182 50 170 L53 192 Q0 204 -53 192Z" fill="${p.shirt2}" opacity=".7"/>`
+  :`<rect x="-46" y="98" width="92" height="112" rx="22" fill="${p.shirt}"/>
+    <path d="M-14 98 L0 116 L14 98Z" fill="${p.shirt2}"/>`;
+ const vest=p.vest?`<path d="M-46 112 Q-46 98 -30 98 L-12 98 L-12 210 L-46 210Z M46 112 Q46 98 30 98 L12 98 L12 210 L46 210Z" fill="#ff8a1f"/>
+   <rect x="-46" y="168" width="34" height="9" fill="#ffe28a"/><rect x="12" y="168" width="34" height="9" fill="#ffe28a"/>`:'';
+ const tie=p.tie?`<path d="M0 104 L-8 116 L0 170 L8 116Z" fill="${C.red}"/><path d="M-26 98 L0 128 L26 98" fill="none" stroke="#fff" stroke-width="5"/>`:'';
+ const badge=p.badge?`<rect x="18" y="128" width="20" height="26" rx="4" fill="#fff"/><rect x="21" y="134" width="14" height="4" fill="${C.blue}"/>`:'';
+ const legs=p.kind==='woman'?`<rect x="-26" y="246" width="20" height="38" rx="9" fill="${p.skin}"/><rect x="6" y="246" width="20" height="38" rx="9" fill="${p.skin}"/>`
+   :`<rect x="-36" y="200" width="32" height="88" rx="12" fill="${p.pants}"/><rect x="4" y="200" width="32" height="88" rx="12" fill="${p.pants}"/>`;
+ return `<svg width="360" height="510" viewBox="-120 -30 240 340" overflow="visible">
+  <ellipse cx="0" cy="300" rx="70" ry="12" fill="rgba(31,42,68,.12)"/>
+  ${legs}
+  <ellipse cx="-22" cy="292" rx="24" ry="11" fill="${p.shoes}"/><ellipse cx="22" cy="292" rx="24" ry="11" fill="${p.shoes}"/>
+  ${arm(-1,p.la,p.shirt2)}${arm(1,p.ra,p.shirt2)}
+  ${torso}${vest}${tie}${badge}
+  <rect x="-12" y="84" width="24" height="20" fill="${p.skinD||C.skinD}"/>
+  <ellipse cx="-45" cy="50" rx="8" ry="11" fill="${p.skin}"/><ellipse cx="45" cy="50" rx="8" ry="11" fill="${p.skin}"/>
+  <ellipse cx="0" cy="44" rx="46" ry="50" fill="${p.skin}"/>
+  ${hair}${brows}${eyes}${glasses}
+  <ellipse cx="0" cy="60" rx="6" ry="4" fill="${C.skinD}" opacity=".6"/>
+  ${mouth}
+ </svg>`}
+const blinkAt=(t,seed=0)=>((t+seed)%3.7)<0.12;
+const IB=(t,o={})=>person(Object.assign({shirt:'#2f7de1',shirt2:'#2363b8',pants:'#2b3a67',badge:true,blink:blinkAt(t)},o));
+const MOM=(t,o={})=>person(Object.assign({kind:'woman',shirt:'#e5484d',shirt2:'#ffc83d',wrap:'#ffc83d',skin:'#6e4024',blink:blinkAt(t,1.3)},o));
+const DIALLO=(t,o={})=>person(Object.assign({shirt:'#4b5563',shirt2:'#374151',pants:'#374151',tie:true,glasses:true,grey:true,skin:'#5f3a22',blink:blinkAt(t,2.1)},o));
+const COLL=(t,o={})=>person(Object.assign({shirt:'#1aa37a',shirt2:'#14805f',pants:'#3b3b4f',vest:true,blink:blinkAt(t,.7),hair:'#2a1a10'},o));
+
+// ---------- icons ----------
+const I={
+ phone:(c='#1f2a44')=>`<svg width="120" height="190" viewBox="0 0 60 95"><rect x="2" y="2" width="56" height="91" rx="10" fill="${c}"/><rect x="7" y="11" width="46" height="68" rx="4" fill="#9fd3ff"/><circle cx="30" cy="86" r="3.5" fill="#fff"/></svg>`,
+ shirt:(c='#e5484d')=>`<svg width="170" height="150" viewBox="0 0 68 60"><path d="M22 2 L8 8 L0 22 L12 27 L14 22 L14 58 L54 58 L54 22 L56 27 L68 22 L60 8 L46 2 Q34 12 22 2Z" fill="${c}"/></svg>`,
+ party:()=>`<svg width="170" height="170" viewBox="0 0 68 68"><path d="M6 62 L24 14 L54 44Z" fill="${C.violet}"/><path d="M14 40 L34 34 M10 52 L42 44" stroke="#ffc83d" stroke-width="4"/><circle cx="46" cy="10" r="4" fill="${C.orange}"/><circle cx="60" cy="24" r="4" fill="${C.green}"/><circle cx="36" cy="6" r="3" fill="${C.red}"/><path d="M50 30 Q60 30 62 38" stroke="${C.red}" stroke-width="3" fill="none"/></svg>`,
+ house:()=>`<svg width="230" height="210" viewBox="0 0 92 84"><path d="M6 40 L46 6 L86 40Z" fill="${C.orange}"/><rect x="14" y="38" width="64" height="44" fill="#fff4e3"/><rect x="38" y="54" width="16" height="28" rx="2" fill="#8a5a3b"/><rect x="20" y="46" width="12" height="12" fill="#9fd3ff"/><rect x="60" y="46" width="12" height="12" fill="#9fd3ff"/></svg>`,
+ bill:(txt,c=C.red)=>`<div class="card" style="position:relative;width:640px;padding:34px 40px;text-align:left"><div style="font-size:28px;font-weight:700;color:#7a8299;letter-spacing:2px">FACTURE MÉDICALE</div><div style="height:4px;background:#eef0f5;margin:16px 0"></div><div style="font-size:30px;color:#7a8299;font-weight:600">Soins urgents</div><div style="font-size:66px;font-weight:900;color:${c};white-space:nowrap">${txt}</div></div>`,
+ wallet:(open=0)=>`<svg width="230" height="180" viewBox="0 0 92 72"><rect x="4" y="14" width="84" height="54" rx="10" fill="#8a5a3b"/><rect x="4" y="8" width="70" height="20" rx="8" fill="#a8714b" transform="rotate(${-open*14} 4 28)"/><rect x="58" y="32" width="30" height="20" rx="6" fill="#6e4024"/><circle cx="70" cy="42" r="4" fill="#ffc83d"/></svg>`,
+ coin:(s=1)=>`<svg width="${70*s}" height="${70*s}" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#ffc83d"/><circle cx="20" cy="20" r="13" fill="none" stroke="#e8a317" stroke-width="3"/><text x="20" y="26" font-size="15" font-weight="900" text-anchor="middle" fill="#c27c0e" font-family="Inter">F</text></svg>`,
+ bills:()=>`<svg width="150" height="100" viewBox="0 0 75 50"><rect x="6" y="6" width="66" height="40" rx="5" fill="#4caf7d" transform="rotate(-8 39 26)"/><rect x="3" y="4" width="66" height="40" rx="5" fill="#5cc48d"/><circle cx="36" cy="24" r="10" fill="#3e9b6a"/></svg>`,
+ hospital:()=>`<svg width="300" height="260" viewBox="0 0 120 104"><rect x="10" y="20" width="100" height="84" rx="6" fill="#fff"/><rect x="10" y="20" width="100" height="16" rx="6" fill="#dfe6f3"/><rect x="48" y="44" width="24" height="60" fill="#cfe3ff"/><rect x="22" y="48" width="18" height="16" fill="#9fd3ff"/><rect x="80" y="48" width="18" height="16" fill="#9fd3ff"/><rect x="50" y="2" width="20" height="36" rx="3" fill="${C.red}"/><rect x="42" y="10" width="36" height="20" rx="3" fill="${C.red}"/></svg>`,
+ notebook:()=>`<svg width="260" height="320" viewBox="0 0 65 80"><rect x="4" y="2" width="58" height="76" rx="6" fill="#fff" stroke="#dfe3ec" stroke-width="2"/><rect x="4" y="2" width="10" height="76" rx="4" fill="${C.orange}"/>${[18,28,38,48,58,68].map(y=>`<rect x="20" y="${y}" width="${30+(y%20)}" height="3" rx="1.5" fill="#cfd5e3"/>`).join('')}</svg>`,
+ piggy:(fill=0)=>`<svg width="320" height="260" viewBox="0 0 120 98"><defs><clipPath id="pg"><ellipse cx="58" cy="54" rx="46" ry="36"/></clipPath></defs><ellipse cx="58" cy="54" rx="46" ry="36" fill="#ffb3c7"/><rect x="0" y="${90-72*fill}" width="120" height="100" fill="#ff8fb0" clip-path="url(#pg)"/><circle cx="96" cy="50" r="12" fill="#ffb3c7"/><circle cx="94" cy="48" r="2" fill="#a14a65"/><circle cx="99" cy="48" r="2" fill="#a14a65"/><circle cx="80" cy="40" r="3.5" fill="#1f2a44"/><path d="M40 20 L48 10 L54 22Z" fill="#ff8fb0"/><rect x="36" y="84" width="10" height="14" rx="4" fill="#ff8fb0"/><rect x="70" y="84" width="10" height="14" rx="4" fill="#ff8fb0"/><rect x="48" y="20" width="22" height="5" rx="2.5" fill="#a14a65"/></svg>`,
+ calendar:(n)=>`<svg width="240" height="240" viewBox="0 0 60 60"><rect x="4" y="8" width="52" height="48" rx="8" fill="#fff" stroke="#dfe3ec" stroke-width="2"/><rect x="4" y="8" width="52" height="14" rx="6" fill="${C.red}"/><rect x="16" y="3" width="5" height="11" rx="2.5" fill="#1f2a44"/><rect x="39" y="3" width="5" height="11" rx="2.5" fill="#1f2a44"/><text x="30" y="49" font-size="24" font-weight="900" text-anchor="middle" fill="#1f2a44" font-family="Inter">${n}</text></svg>`,
+ bubble:(c=C.blue)=>`<svg width="200" height="170" viewBox="0 0 80 68"><path d="M8 6 H72 Q78 6 78 12 V44 Q78 50 72 50 H34 L18 64 L20 50 H8 Q2 50 2 44 V12 Q2 6 8 6Z" fill="${c}"/><circle cx="24" cy="28" r="4.5" fill="#fff"/><circle cx="40" cy="28" r="4.5" fill="#fff"/><circle cx="56" cy="28" r="4.5" fill="#fff"/></svg>`,
+ share:()=>`<svg width="180" height="180" viewBox="0 0 70 70"><circle cx="35" cy="35" r="33" fill="${C.green}"/><path d="M20 46 Q22 28 42 26 V18 L56 32 L42 46 V38 Q30 36 20 46Z" fill="#fff"/></svg>`,
+ heart:()=>`<svg width="120" height="110" viewBox="0 0 48 44"><path d="M24 42 L6 24 Q-2 14 6 6 Q14 -1 24 9 Q34 -1 42 6 Q50 14 42 24Z" fill="${C.red}"/></svg>`,
+ check:(c=C.green)=>`<svg width="70" height="70" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="${c}"/><path d="M11 21 L18 28 L30 13" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+ cross:()=>`<svg width="70" height="70" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="${C.red}"/><path d="M13 13 L27 27 M27 13 L13 27" stroke="#fff" stroke-width="5" stroke-linecap="round"/></svg>`,
+ bed:()=>`<svg width="460" height="230" viewBox="0 0 184 92"><rect x="6" y="40" width="172" height="26" rx="8" fill="#dfe6f3"/><rect x="10" y="20" width="16" height="66" rx="6" fill="#8a9bb8"/><rect x="160" y="34" width="14" height="52" rx="6" fill="#8a9bb8"/><rect x="26" y="30" width="44" height="20" rx="10" fill="#fff"/><rect x="60" y="34" width="104" height="22" rx="10" fill="#9fd3ff"/></svg>`,
+ box:()=>`<svg width="130" height="120" viewBox="0 0 52 48"><rect x="2" y="8" width="48" height="38" rx="3" fill="#d9a066"/><rect x="2" y="8" width="48" height="10" fill="#c48a52"/><rect x="21" y="8" width="10" height="16" fill="#f1d3a8"/></svg>`,
+ scale:(tilt)=>`<svg width="520" height="360" viewBox="0 0 208 144"><rect x="100" y="20" width="8" height="112" fill="#1f2a44"/><rect x="70" y="128" width="68" height="10" rx="5" fill="#1f2a44"/><g transform="rotate(${tilt} 104 24)"><rect x="14" y="20" width="180" height="8" rx="4" fill="#1f2a44"/><path d="M24 28 L8 70 H52Z" fill="none" stroke="#1f2a44" stroke-width="2"/><path d="M184 28 L168 70 H212Z" fill="none" stroke="#1f2a44" stroke-width="2"/><path d="M6 70 H54 Q50 84 30 84 Q10 84 6 70Z" fill="${C.orange}"/><path d="M166 70 H214 Q210 84 190 84 Q170 84 166 70Z" fill="${C.green}"/></g><circle cx="104" cy="22" r="8" fill="${C.orange}"/></svg>`,
+};
+function badge(txt,bg,{fs=44}={}){return `<div class="badge" style="position:relative;background:${bg};font-size:${fs}px">${txt}</div>`}
+function chip(txt,bg='#fff',col=C.ink,fs=34){return `<div style="background:${bg};color:${col};font-weight:800;font-size:${fs}px;padding:14px 28px;border-radius:999px;white-space:nowrap;box-shadow:0 6px 0 rgba(31,42,68,.08),0 2px 14px rgba(31,42,68,.1)">${txt}</div>`}
+function bigNum(txt,col,sub=''){return `<div class="card" style="position:relative;text-align:center;padding:30px 50px"><div style="font-size:96px;font-weight:900;color:${col};letter-spacing:-2px;white-space:nowrap">${txt}</div>${sub?`<div style="font-size:32px;font-weight:700;color:#7a8299">${sub}</div>`:''}</div>`}
+
+// ---------- backgrounds ----------
+function bg(t,top,bot,ground,{sun=false,clouds=true,dark=0,city=false,rain=0}={}){
+ let h=`<div class="abs" style="width:1080px;height:1920px;background:linear-gradient(${top},${bot})"></div>`;
+ if(sun)h+=at(860,560,`<div style="width:130px;height:130px;border-radius:50%;background:${C.yellow};box-shadow:0 0 0 26px rgba(255,200,61,.25)"></div>`);
+ if(city){const b=[[60,300,170],[230,420,130],[360,260,150],[520,380,120],[640,320,170],[810,450,130],[940,300,160]];
+  h+=b.map(([x,hh,w],i)=>`<div class="abs" style="left:${x}px;top:${1500-hh}px;width:${w}px;height:${hh}px;background:rgba(31,42,68,${.07+i%2*.03});border-radius:14px 14px 0 0"></div>`).join('');
+  h+=`<div class="abs" style="left:450px;top:1240px;width:150px;height:150px;border-radius:75px 75px 0 0;background:rgba(31,42,68,.1)"></div><div class="abs" style="left:518px;top:1150px;width:14px;height:100px;background:rgba(31,42,68,.1)"></div>`}
+ if(clouds){[[0,520,1],[1,700,.8],[2,620,1.15]].forEach(([i,y,s])=>{const x=((t*18*(1+i*.3)+i*420)%1400)-200;
+  h+=at(x,y,`<svg width="${220*s}" height="${100*s}" viewBox="0 0 110 50"><path d="M20 46 Q2 46 4 32 Q6 20 22 22 Q26 4 48 6 Q66 0 74 18 Q96 14 100 32 Q104 46 86 46Z" fill="${dark>0?'#c6ccd8':'#fff'}" opacity=".95"/></svg>`)})}
+ h+=`<div class="abs" style="top:1500px;width:1080px;height:420px;background:${ground}"></div>`;
+ if(rain>0){for(let i=0;i<40;i++){const x=(i*97)%1080,y=((t*900+i*211)%1100)+500;h+=`<div class="abs" style="left:${x}px;top:${y}px;width:4px;height:34px;border-radius:2px;background:rgba(80,110,170,${.35*rain})"></div>`}}
+ if(dark>0)h+=`<div class="abs" style="width:1080px;height:1920px;background:rgba(31,42,68,${dark*.25})"></div>`;
+ return h}
+
+// ---------- captions ----------
+const SEGS=[
+[0.00,2.58,"Tu ne seras pas au ~chômage~ si tu comprends ceci !"],
+[3.10,4.43,"Voici l'histoire de @Bintou@."],
+[4.82,8.02,"@Bintou@ est une jeune fille qui vient tout juste d'obtenir son #baccalauréat#."],
+[8.45,12.42,"Comme des milliers d'autres nouveaux bacheliers, elle s'apprête à faire son entrée à *l'université*."],
+[12.86,17.56,"Mais contrairement à beaucoup de ses camarades, @Bintou@ pense déjà à son *avenir professionnel*."],
+[18.04,18.97,"Elle se pose une question :"],
+[19.43,22.66,"chaque année, des *milliers de diplômés* arrivent sur le marché de l'emploi."],
+[23.06,24.86,"Alors, comment faire pour #se démarquer# ?"],
+[25.25,31.67,"Comment éviter de passer des années à l'université pour finalement se retrouver à ~chercher désespérément un emploi~ ?"],
+[32.25,38.46,"Pour trouver des réponses, @Bintou@ décide de consulter des *professionnels*, des *salariés expérimentés* et même des *cadres dirigeants*."],
+[38.92,42.05,"Et ce qu'elle découvre va complètement changer sa #vision des études#."],
+[42.52,45.83,"Elle comprend que le diplôme, à lui seul, ~ne garantit pas~ un emploi."],
+[46.26,50.06,"Qu'il ne suffit pas d'attendre la fin de ses études pour commencer à chercher des *opportunités*."],
+[50.45,53.73,"Alors, dès sa #première année# à l'université, elle prend les choses en main."],
+[54.09,58.81,"Elle enchaîne les *formations*, développe ses *compétences* et cherche constamment à apprendre de nouvelles choses."],
+[59.23,64.64,"Mais surtout, elle décide de maîtriser #l'anglais#, une compétence encore trop souvent négligée par de nombreux étudiants."],
+[65.14,71.50,"Elle sait qu'au-delà de ses diplômes, ce sont ses *compétences*, sa *capacité à communiquer* et son *expérience* qui feront la différence."],
+[71.96,76.16,"Après l'obtention de sa licence, elle tente sa chance en postulant à une #bourse d'études# aux *États-Unis*."],
+[76.53,78.83,"Et contre toute attente, elle est #sélectionnée# !"],
+[79.19,82.83,"Une fois sur place, sa maîtrise du *français* et de *l'anglais* lui ouvre de nouvelles portes."],
+[83.22,88.52,"Elle finit par décrocher une première opportunité professionnelle chez @Microsoft@, puis poursuit son parcours chez @Apple@."],
+[88.96,93.89,"Après plusieurs années d'expérience, elle accède à un poste de #responsable des ressources humaines# chez @NVIDIA@."],
+[94.22,99.76,"Et comme si son parcours professionnel ne suffisait pas, elle finit même par épouser le *PDG* de l'entreprise !"],
+[100.17,102.82,"Aujourd'hui, la carrière de @Bintou@ ne cesse de #progresser#."],
+[103.27,109.80,"Mais retiens bien une chose : @Bintou@ n'a pas attendu d'être diplômée pour préparer sa réussite. Elle a commencé dès sa #première année#."],
+[110.21,120.30,"Alors, étudiant, ne te contente pas d'aller à l'université pour obtenir un diplôme. #Apprends#, #forme-toi#, #maîtrise les langues#, #développe tes compétences# et prépare ton avenir pendant que tu étudies."],
+[120.63,127.09,"Parce que le marché du travail ne récompense pas uniquement ceux qui ont des diplômes, mais aussi ceux qui savent #faire la différence# !"]];
+
+// markers: *orange* #green# ~red~ @violet@
+const CHUNKS=[];
+(function(){for(const [s,e,txt] of SEGS){
+  const words=[];let cls='';
+  for(const raw of txt.split(' ')){let w=raw,c=cls;
+    const mk={'*':'k1','#':'k2','~':'k3','@':'k4'};
+    for(const m in mk){ if(w.startsWith(m)){cls=mk[m];c=cls;w=w.slice(1)} }
+    let end=false;for(const m in mk){ if(w.includes(m)){w=w.replace(m,'');end=true} }
+    words.push({w,c});if(end)cls='';}
+  // chunk ~ <= 42 chars
+  const groups=[];let g=[],len=0;
+  words.forEach((wd,i)=>{g.push(wd);len+=wd.w.length+1;const last=i===words.length-1;
+    const brk=/[.!?:,…]$/.test(wd.w)&&len>18;
+    if(len>40||brk||last){groups.push(g);g=[];len=0}});
+  const total=groups.reduce((a,g)=>a+g.reduce((b,w)=>b+w.w.length+1,0),0);
+  let cur=s;for(const g of groups){const l=g.reduce((b,w)=>b+w.w.length+1,0);const d=(e-s)*l/total;
+    let wc=cur;const ws=g.map(w=>{const wd=(d*(w.w.length+1)/l);const o={...w,t:wc};wc+=wd;return o});
+    CHUNKS.push({s:cur,e:cur+d,ws});cur+=d}
+}})();
+function caption(t){let c=null;for(const k of CHUNKS){if(t>=k.s-0.05)c=k;else break}
+ if(!c)return '';
+ // keep showing last chunk through short pauses (<1.2s), hide during long gaps
+ if(t>c.e+1.2)return '';
+ const html=c.ws.map(w=>{const a=clamp((t-w.t)/0.12);return `<span class="w ${w.c}" style="opacity:${0.18+0.82*a};transform:translateY(${(1-a)*8}px)">${w.w}</span>`}).join(' ');
+ const ap=eOut(clamp((t-c.s+0.05)/0.2));
+ return `<div class="cap" style="transform:scale(${0.96+0.04*ap})"><p>${html}</p></div>`}
+
+// ---------- scenes ----------
+const talkAmp=(t)=>Math.abs(Math.sin(t*17))*.8+.2;
+
+// time at which a word (first match after `after`) is spoken, from the caption timing
+function wt(word,after=0){for(const c of CHUNKS)for(const w of c.ws){if(w.t>=after&&w.w.toLowerCase().replace(/[^a-zà-ÿ'-]/g,'').startsWith(word.toLowerCase()))return w.t}return after}
+const BIN=(t,o={})=>person(Object.assign({kind:'woman',wrap:'#1b1b1b',shirt:'#8b5cf6',shirt2:'#6d28d9',skin:'#6e4024',blink:blinkAt(t,.4)},o));
+const PRO=(t,o={})=>BIN(t,Object.assign({shirt:'#1f2a44',shirt2:'#e5484d'},o));
+const GUY=(t,col,o={})=>person(Object.assign({shirt:col,shirt2:col,blink:blinkAt(t,col.length)},o));
+const CEO=(t,o={})=>person(Object.assign({shirt:'#1f2a44',shirt2:'#111827',pants:'#111827',tie:true,skin:'#5a3820',blink:blinkAt(t,1.9)},o));
+const capSvg=(w=150)=>`<svg width="${w}" height="${w*.6}" viewBox="0 0 100 60"><path d="M50 4 L98 22 L50 40 L2 22Z" fill="#1f2a44"/><path d="M24 30 V46 Q50 58 76 46 V30 L50 40Z" fill="#2b3a67"/><path d="M86 26 V46" stroke="${C.yellow}" stroke-width="3"/><circle cx="86" cy="48" r="4" fill="${C.yellow}"/></svg>`;
+const diploma=(label,col=C.green)=>`<div class="card" style="position:relative;width:360px;text-align:center;padding:26px"><div style="font-size:26px;font-weight:800;color:#7a8299;letter-spacing:3px">DIPLÔME</div><div style="font-size:58px;font-weight:900;color:${col}">${label}</div><div style="margin:8px auto 0;width:44px;height:44px;border-radius:50%;background:${C.red}"></div></div>`;
+const bulb=()=>`<svg width="150" height="190" viewBox="0 0 60 76"><circle cx="30" cy="28" r="22" fill="${C.yellow}"/><rect x="21" y="48" width="18" height="14" rx="3" fill="#cfd5e3"/><rect x="23" y="62" width="14" height="6" rx="3" fill="#8a9bb8"/><path d="M30 0 V-6 M6 10 L1 6 M54 10 L59 6" stroke="${C.yellow}" stroke-width="4"/></svg>`;
+const laptop=()=>`<svg width="300" height="190" viewBox="0 0 120 76"><rect x="16" y="4" width="88" height="58" rx="6" fill="#1f2a44"/><rect x="22" y="10" width="76" height="46" rx="3" fill="#9fd3ff"/><rect x="28" y="18" width="40" height="5" rx="2" fill="#fff"/><rect x="28" y="28" width="60" height="5" rx="2" fill="#fff"/><rect x="28" y="38" width="30" height="5" rx="2" fill="#fff"/><path d="M4 64 H116 L110 72 H10Z" fill="#8a9bb8"/></svg>`;
+const plane=()=>`<svg width="300" height="150" viewBox="0 0 120 60"><path d="M6 30 Q60 20 112 28 Q118 30 112 32 Q60 40 6 30Z" fill="#fff" stroke="#cfd5e3" stroke-width="2"/><path d="M50 30 L30 6 H40 L72 28Z" fill="${C.blue}"/><path d="M50 32 L30 56 H40 L72 32Z" fill="${C.blue}"/><path d="M12 30 L4 16 H12 L22 28Z" fill="${C.blue}"/></svg>`;
+const cvx=(ok)=>`<div class="card" style="position:relative;width:160px;height:210px;padding:20px"><div style="width:50px;height:50px;border-radius:50%;background:#dfe6f3"></div>${[0,1,2,3].map(()=>`<div style="height:10px;background:#e3e7ef;border-radius:5px;margin-top:14px"></div>`).join('')}<div style="position:absolute;right:-20px;top:-20px">${ok?I.check():I.cross()}</div></div>`;
+function crowd(t,n,y,{caps=false,grey=false,sc=.45,x0=120,dx=105,seed=0}={}){let h='';const cols=['#2f7de1','#1aa37a','#f08a24','#e5484d','#5b5bd6','#0ea5e9'];
+ for(let i=0;i<n;i++){const col=grey?'#9aa3b5':cols[(i+seed)%cols.length];const x=x0+i*dx,yy=y+(i%2)*28;
+  h+=at(x,yy,GUY(t,col,{mood:'neutral',skin:grey?'#8d8d96':(i%3?C.skin:'#6e4024')}),{s:sc});
+  if(caps)h+=at(x,yy-sc*215,capSvg(150),{s:sc*1.1})}return h}
+
+const SCENES=[
+// 1 hook
+{s:0,e:2.95,f:(t)=>{let h=bg(t,'#fff3e0','#ffe0b8','#f4c99a',{sun:true});
+  h+=at(540,800,`<div style="position:relative">${badge('CHÔMAGE',C.red,{fs:84})}<div style="position:absolute;left:-20px;right:-20px;top:50%;height:14px;background:#1f2a44;border-radius:7px;transform:rotate(-8deg) scaleX(${eOut(prog(t,1.3,.4))});transform-origin:left"></div></div>`,pop(t,.15));
+  h+=at(540,1290,BIN(t,{mood:'big',la:24,ra:-150}),{ty:Math.sin(t*4)*5});
+  h+=at(820,1020,bulb(),pop(t,1.9));return h}},
+// 2 intro + bac + université
+{s:2.95,e:12.7,f:(t)=>{let h=bg(t,'#e6f2ff','#cfe6ff','#cfe3c8',{sun:true});
+  const uni=t>10.2;
+  if(uni){h+=at(760,1240,`<div style="position:relative">${I.house().replace(C.orange,'#5b5bd6')}</div>`,{s:1.6*pop(t,10.3).s,o:pop(t,10.3).o});
+    h+=at(760,1040,chip('UNIVERSITÉ',C.violet,'#fff',36),pop(t,10.6))}
+  h+=crowd(t,4,1420,{sc:.42,x0:120,dx:95,seed:1}).repeat(t>8.6&&t<10.4?1:0);
+  h+=at(uni?330:540,1290,BIN(t,{mood:'big',la:20,ra:t>5.2?-150:-14}),{ty:Math.sin(t*3)*4});
+  h+=at(uni?330:540,1290-215,capSvg(150),pop(t,5.6));
+  h+=at(540,620,chip('Bintou',C.violet,'#fff',56),pop(t,3.3,10.2));
+  if(!uni)h+=at(820,880,diploma('BAC ✓'),{...pop(t,6.6),r:6});
+  return h}},
+// 3 thinking + market
+{s:12.7,e:25.05,f:(t)=>{let h=bg(t,'#f1edff','#e1d9ff','#cfc4f2');
+  const mk=t>19.3;
+  if(!mk){h+=at(540,1290,BIN(t,{mood:'neutral',ra:-160,look:1}));
+    h+=at(720,860,`<div class="card" style="position:relative;padding:30px 40px;font-size:46px;font-weight:800;white-space:nowrap">Mon avenir pro ? 💼</div>`,pop(t,15.4));
+    h+=at(380,950,`<div style="font-size:120px;font-weight:900;color:${C.violet}">?</div>`,pop(t,18.1))}
+  else{h+=at(540,650,badge('MARCHÉ DE L\'EMPLOI',C.ink,{fs:46}),pop(t,19.5));
+    h+=crowd(t,9,1150,{caps:true,sc:.38,x0:110,dx:108});h+=crowd(t,9,1400,{caps:true,sc:.38,x0:160,dx:108,seed:3});
+    if(t>23.0){h+=at(540,1420,`<div style="width:300px;height:300px;border-radius:50%;background:radial-gradient(rgba(255,200,61,.55),rgba(255,200,61,0) 70%)"></div>`,pop(t,23.1));
+      h+=at(540,1440,BIN(t,{mood:'smile'}),{...pop(t,23.1),s:.62*pop(t,23.1).s});h+=at(540,880,chip('Se démarquer ?',C.green,'#fff',44),pop(t,23.3))}}
+  return h}},
+// 4 the bad scenario
+{s:25.05,e:32.05,f:(t)=>{let h=bg(t,'#e4e7f0','#ccd2e0','#aab3c6',{rain:clamp((t-28.5)/1),dark:clamp((t-28.5)/1)*.5});
+  const yrs=['L1','L2','L3','M1','M2'];
+  h+=at(540,700,`<div style="display:flex;gap:14px">${yrs.map((y,i)=>`<div style="width:150px;height:110px;border-radius:22px;background:${prog(t,25.5+i*.55,.2)>0?'#fff':'rgba(255,255,255,.3)'};display:flex;align-items:center;justify-content:center;font-size:44px;font-weight:900;color:${C.ink};opacity:${.3+.7*prog(t,25.5+i*.55,.2)}">${y}</div>`).join('')}</div>`);
+  h+=at(540,830,chip('Des années d\'université…','#fff',C.ink,36),pop(t,25.6));
+  h+=at(330,1300,BIN(t,{mood:t>28.6?'sad':'neutral',ra:-60,la:14}));
+  [0,1,2].forEach(i=>h+=at(640+i*150,1130+(i%2)*40,cvx(false),{...pop(t,28.8+i*.6),r:(i-1)*8}));
+  return h}},
+// 5 consulting
+{s:32.05,e:42.3,f:(t)=>{let h=bg(t,'#e8f5ef','#d2ecdf','#b6dcc8');
+  h+=at(200,1310,BIN(t,{mood:t>38.9?'big':'smile',look:1,ra:t>38.9?-150:-14}));
+  const P=[[wt('professionnels',33),'Professionnel','#0ea5e9',GUY],[wt('salariés',33),'Salarié expérimenté','#1aa37a',GUY],[wt('cadres',33),'Cadre dirigeant','',CEO]];
+  P.forEach(([ti,l,col,fn],i)=>{const x=480+i*230;h+=at(x,1350,fn===CEO?CEO(t,{mood:'smile',talk:(t>ti&&t<ti+1.4)?talkAmp(t):0}):GUY(t,col,{mood:'smile',talk:(t>ti&&t<ti+1.4)?talkAmp(t):0}),{...pop(t,ti),s:.8*pop(t,ti).s});
+    h+=at(x,1070-i*60,chip(l,'#fff',C.ink,28),pop(t,ti+.1))});
+  if(t>38.9){h+=at(200,960,bulb(),pop(t,39.0));h+=at(540,640,badge('DÉCLIC !',C.orange,{fs:56}),pop(t,39.3))}
+  return h}},
+// 6 discoveries
+{s:42.3,e:50.3,f:(t)=>{let h=bg(t,'#fff8ec','#fdebd0','#f3d3a5');
+  const rows=[[42.6,'Diplôme seul = emploi garanti'],[46.4,'Attendre la fin des études']];
+  h+=at(540,760,`<div class="card" style="position:relative;width:900px;text-align:left;padding:36px 44px"><div style="font-size:30px;font-weight:800;color:#7a8299;letter-spacing:2px;margin-bottom:8px">CE QU'ELLE DÉCOUVRE</div>${rows.map(([ti,l])=>{const a=pop(t,ti);return `<div style="display:flex;align-items:center;justify-content:space-between;margin:20px 0;opacity:${a.o}"><span style="font-size:44px;font-weight:800;${t>ti+1.2?'text-decoration:line-through;text-decoration-thickness:5px;color:#7a8299':''}">${l}</span><span style="display:inline-block;transform:scale(${pop(t,ti+1.2).s})">${I.cross()}</span></div>`}).join('')}</div>`,rise(t,42.4));
+  h+=at(380,1310,BIN(t,{mood:'surprised',la:160,ra:-160}));
+  h+=at(800,1250,diploma('Licence',C.violet),{s:.75,r:8,o:.95});
+  return h}},
+// 7 first year action
+{s:50.3,e:59.05,f:(t)=>{let h=bg(t,'#e6f2ff','#cfe6ff','#bcd3ee');
+  h+=at(540,620,badge('DÈS LA 1RE ANNÉE',C.green,{fs:52}),pop(t,wt('première',50)));
+  h+=at(360,1300,BIN(t,{mood:'smile',ra:-60}));h+=at(760,1280,laptop(),pop(t,52.4));
+  const L=[[wt('formations',53),'Formations'],[wt('compétences',53),'Compétences'],[wt('apprendre',53),'Apprendre sans cesse']];
+  L.forEach(([ti,l],i)=>h+=at(540,830+i*110,`<div style="display:flex;align-items:center;gap:18px">${chip(l,'#fff',C.ink,42)}${I.check()}</div>`,pop(t,ti)));
+  return h}},
+// 8 English + skills
+{s:59.05,e:71.8,f:(t)=>{let h=bg(t,'#fff3e0','#ffe0b8','#f4c99a',{sun:true});
+  if(t<65.0){h+=at(540,640,badge('ENGLISH',C.blue,{fs:64}),pop(t,wt('anglais',59)));
+    h+=at(330,1300,BIN(t,{mood:'big',talk:(t>60.5&&t<63)?talkAmp(t):0,ra:-110}));
+    h+=at(720,900,`<div class="card" style="position:relative;font-size:52px;font-weight:900;color:${C.blue}">Hello! 👋</div>`,pop(t,60.8));
+    h+=at(780,1060,`<div class="card" style="position:relative;font-size:40px;font-weight:800">How are you?</div>`,pop(t,61.8));
+    h+=at(760,1250,chip('Compétence négligée',C.red,'#fff',34),pop(t,62.6))}
+  else{const K=[[wt('compétences',65),'Compétences','🧠',C.orange],[wt('capacité',65),'Communication','🗣️',C.blue],[wt('expérience',65),'Expérience','💼',C.green]];
+    K.forEach(([ti,l,e,col],i)=>h+=at(540,720+i*190,`<div class="card" style="position:relative;width:760px;display:flex;align-items:center;gap:26px;border:5px solid ${col}"><div style="font-size:60px">${e}</div><div style="font-size:48px;font-weight:800">${l}</div></div>`,rise(t,ti)));
+    h+=at(540,1400,BIN(t,{mood:'smile',la:24,ra:-24}),{s:.8});h+=at(800,560,chip('= la différence',C.violet,'#fff',38),pop(t,69.6))}
+  return h}},
+// 9 scholarship
+{s:71.8,e:79.0,f:(t)=>{let h=bg(t,'#e6f2ff','#cfe6ff','#cfe3c8',{sun:true});
+  h+=at(300,800,diploma('Licence ✓'),{...pop(t,72.2),s:.8*pop(t,72.2).s,r:-6});
+  h+=at(720,820,`<div class="card" style="position:relative;width:440px;text-align:left"><div style="font-size:26px;font-weight:800;color:#7a8299;letter-spacing:2px">CANDIDATURE</div><div style="font-size:44px;font-weight:900;margin-top:8px">Bourse d'études</div><div style="font-size:38px;font-weight:800;color:${C.blue}">🇺🇸 États-Unis</div></div>`,pop(t,wt('bourse',72)));
+  h+=at(540,1300,BIN(t,{mood:t>76.6?'big':'worried',la:t>76.6?150:14,ra:t>76.6?-150:-14}),{ty:t>76.6?-Math.abs(Math.sin(t*5))*14:0});
+  if(t>76.5){h+=at(540,1050,`<div style="border:8px solid ${C.green};color:${C.green};font-size:72px;font-weight:900;padding:10px 30px;border-radius:18px;background:rgba(255,255,255,.9)">SÉLECTIONNÉE !</div>`,{...pop(t,wt('sélectionnée',76)),r:-8});
+    for(let i=0;i<16;i++){const p=prog(t,77,2.2);if(p>0&&p<1){h+=at(540+Math.cos(i*1.9)*p*500,900+Math.sin(i*2.7)*p*300+p*p*600,`<div style="width:22px;height:12px;background:${[C.orange,C.green,C.violet,C.red][i%4]};border-radius:3px"></div>`,{r:i*40+t*300,o:1-p})}}}
+  return h}},
+// 10 USA + Microsoft/Apple
+{s:79.0,e:88.8,f:(t)=>{let h=bg(t,'#eaf3ff','#d3e5fb','#b9cbe3',{city:true});
+  const p=eInOut(prog(t,79.1,1.6));h+=at(lerp(-200,1350,p),lerp(560,640,p),plane(),{r:4});
+  h+=at(330,1300,PRO(t,{mood:'smile',talk:(t>80&&t<82.6)?talkAmp(t):0,ra:-60}));
+  h+=at(300,880,`<div class="card" style="position:relative;font-size:42px;font-weight:900">Bonjour ! <span style="color:${C.blue}">Hello!</span></div>`,pop(t,wt('français',79)));
+  const doorO=eOut(prog(t,82.0,1));h+=at(780,1240,`<div style="width:240px;height:380px;background:#fff8d6;border-radius:12px;position:relative;overflow:hidden;box-shadow:0 0 60px rgba(255,200,61,${.6*doorO})"><div style="position:absolute;inset:0;background:#8a5a3b;transform-origin:left;transform:perspective(600px) rotateY(${-75*doorO}deg)"></div></div>`,pop(t,81.2));
+  const jobs=[[wt('microsoft',83),'Microsoft',C.blue],[wt('apple',83),'Apple',C.ink]];
+  jobs.forEach(([ti,l,col],i)=>h+=at(780,780+i*120,`<div style="display:flex;align-items:center;gap:16px">${chip(l,col,'#fff',44)}${I.check()}</div>`,pop(t,ti)));
+  return h}},
+// 11 HR manager
+{s:88.8,e:94.1,f:(t)=>{let h=bg(t,'#e6f8ef','#cfefdf','#a9dcc0');
+  const st=[[1,'Microsoft'],[2,'Apple'],[3,'NVIDIA']];
+  st.forEach(([n,l],i)=>{const hh=160+i*150;h+=at(250+i*290,1500-hh/2,`<div style="width:240px;height:${hh}px;background:${[C.blue,C.violet,C.green][i]};border-radius:18px 18px 0 0;display:flex;align-items:flex-start;justify-content:center;padding-top:20px;color:#fff;font-size:38px;font-weight:900">${l}</div>`,rise(t,89+i*.3,1e9,100))});
+  h+=at(830,1050,PRO(t,{mood:'big',la:150,ra:-150}),{...pop(t,90.0),s:.75*pop(t,90.0).s});
+  h+=at(540,640,`<div class="card" style="position:relative;text-align:center;padding:28px 40px"><div style="font-size:30px;font-weight:800;color:#7a8299;letter-spacing:2px">NOUVEAU POSTE</div><div style="font-size:54px;font-weight:900;color:${C.green}">Responsable RH</div><div style="font-size:40px;font-weight:800;color:${C.violet}">chez NVIDIA</div></div>`,pop(t,wt('responsable',89)));
+  return h}},
+// 12 wedding
+{s:94.1,e:100.05,f:(t)=>{let h=bg(t,'#ffe9ef','#ffd6e0','#f5b7c6',{sun:false});
+  const ceo=wt('pdg',94),ep=wt('épouser',94);
+  h+=at(540,640,badge('ET CE N\'EST PAS TOUT…',C.orange,{fs:46}),pop(t,94.4));
+  h+=at(380,1300,PRO(t,{mood:t>ceo?'big':'smile',ra:-40,la:14}));
+  h+=at(720,1290,CEO(t,{mood:'big',la:40}),pop(t,ep));
+  h+=at(720,960,chip('PDG',C.ink,'#fff',42),pop(t,ceo));
+  for(let i=0;i<10;i++){const p=((t-ceo)*0.35+i/10)%1;if(t>ceo)h+=at(550+Math.sin(i*2.1+t)*260,lerp(1200,600,p),I.heart(),{s:.5+.3*(i%3)/2,o:Math.sin(p*Math.PI)})}
+  h+=at(550,780,`<div style="font-size:130px">💍</div>`,pop(t,ceo+.6));
+  return h}},
+// 13 progress + retiens
+{s:100.05,e:110.1,f:(t)=>{let h=bg(t,'#eef7ff','#d7ebff','#b9d6f2');
+  if(t<103.2){let bars='';for(let i=0;i<7;i++){const p=eOut(prog(t,100.3+i*.25,.4));bars+=`<div style="width:80px;height:${(80+i*65)*p}px;background:${C.green};border-radius:12px 12px 0 0"></div>`}
+    h+=at(540,1050,`<div style="display:flex;gap:20px;height:520px;align-items:flex-end">${bars}</div>`);
+    h+=at(540,650,badge('CARRIÈRE ↗',C.green,{fs:58}),pop(t,100.4));h+=at(860,1380,PRO(t,{mood:'big',la:150,ra:-150}),{s:.6})}
+  else{h+=at(540,620,badge('RETIENS BIEN',C.orange,{fs:58}),pop(t,103.4));
+    const steps=[['1re année',C.green,wt('attendu',103)],['Préparation',C.blue,wt('préparer',103)],['Réussite',C.violet,wt('réussite',103)]];
+    steps.forEach(([l,col,ti],i)=>{h+=at(200+i*340,900,`<div style="width:220px;height:220px;border-radius:50%;background:${col};color:#fff;display:flex;align-items:center;justify-content:center;text-align:center;font-size:38px;font-weight:900;padding:10px">${l}</div>`,pop(t,ti));
+      if(i<2)h+=at(370+i*340,900,`<div style="font-size:70px;color:${C.ink};font-weight:900">→</div>`,pop(t,ti+.4))});
+    h+=at(540,1310,BIN(t,{mood:'smile',la:24,ra:-130}));h+=at(540,1310-215,capSvg(150),pop(t,104))}
+  return h}},
+// 14 advice list
+{s:110.1,e:120.5,f:(t)=>{let h=bg(t,'#fff8ec','#fdebd0','#f3d3a5',{clouds:false});
+  h+=at(540,520,badge('ÉTUDIANT, À TOI !',C.red,{fs:52}),pop(t,110.3));
+  const A=[['apprends','Apprends','📚',C.orange],['forme-toi','Forme-toi','🎓',C.green],['maîtrise','Maîtrise les langues','🗣️',C.blue],['développe','Développe tes compétences','🛠️',C.violet],['prépare','Prépare ton avenir','🚀',C.red]];
+  const times=A.map(a=>wt(a[0],112));const active=times.filter(x=>t>=x).length-1;
+  A.forEach(([k,l,e,col],i)=>{const a=rise(t,times[i]);const on=i===active;
+    h+=at(540,700+i*165,`<div class="card" style="position:relative;width:880px;display:flex;align-items:center;gap:24px;padding:22px 32px;border:5px solid ${on?col:'transparent'};transform:scale(${on?1.03:1})"><div style="font-size:52px">${e}</div><div style="font-size:44px;font-weight:800;flex:1;text-align:left">${l}</div>${I.check(col)}</div>`,{ty:a.y,o:a.o})});
+  h+=at(540,1580,BIN(t,{mood:'big',ra:-150}),{s:.55});return h}},
+// 15 make the difference
+{s:120.5,e:999,f:(t)=>{let h=bg(t,'#fff3e0','#ffe0b8','#f4c99a',{sun:true});
+  h+=crowd(t,9,1320,{caps:true,sc:.38,x0:110,dx:108,grey:t>wt('faire',121)});
+  const d=wt('faire',121);
+  h+=at(540,620,badge('FAIS LA DIFFÉRENCE !',C.green,{fs:58}),pop(t,d));
+  h+=at(540,1000,diploma('Diplôme',C.ink),{...pop(t,121),s:.7*pop(t,121).s,r:-5,o:pop(t,121).o*(t>d?.5:1)});
+  if(t>d){h+=at(540,1420,`<div style="width:420px;height:420px;border-radius:50%;background:radial-gradient(rgba(255,200,61,.65),rgba(255,200,61,0) 70%)"></div>`,pop(t,d));
+    h+=at(540,1440,PRO(t,{mood:'big',la:150,ra:-150}),{...pop(t,d+.1),s:.8*pop(t,d+.1).s})}
+  return h}},
+];
+
+function render(t){
+ let h='';
+ for(let i=0;i<SCENES.length;i++){const sc=SCENES[i];if(t>=sc.s&&t<sc.e){
+   h+=sc.f(t);
+   // scene transition: quick white wipe in
+   const k=clamp((t-sc.s)/0.35);if(i>0&&k<1)h+=`<div class="abs" style="width:1080px;height:1920px;background:#fff;opacity:${1-eOut(k)}"></div>`;
+ }}
+ h+=caption(t);
+ h+=`<div class="brand">MOTION <b>POUR TOUS</b></div>`;
+ h+=`<div class="bar" style="width:${clamp(t/127.1)*1080}px"></div>`;
+ document.getElementById('stage').innerHTML=h;
+}
+window.render=render;render(0);
+</script></body></html>
