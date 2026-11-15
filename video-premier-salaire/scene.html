@@ -65,7 +65,7 @@ function person(o={}){
  else if(p.grey){hair=`<path d="M-44 30 Q-46 -6 0 -8 Q46 -6 44 30 Q38 14 26 12 Q0 4 -26 12 Q-38 14 -44 30Z" fill="#cfd3dc"/>`}
  else hair=`<path d="M-44 34 Q-48 -10 0 -10 Q48 -10 44 34 Q42 14 30 12 Q0 2 -30 12 Q-42 14 -44 34Z" fill="${p.hair}"/>`;
  const glasses=p.glasses?`<g fill="none" stroke="#1f2a44" stroke-width="3.5"><circle cx="-16" cy="${eyeY}" r="14"/><circle cx="16" cy="${eyeY}" r="14"/><path d="M-2 ${eyeY} h4"/></g>`:'';
- const arm=(side,ang,color)=>{const sx=side*42;return `<g transform="translate(${sx} 118) rotate(${-side*ang})">
+ const arm=(side,ang,color)=>{const sx=side*(p.kind==='woman'?46:42);return `<g transform="translate(${sx} 118) rotate(${-side*ang})">
    <rect x="-12" y="-8" width="24" height="96" rx="12" fill="${color}"/><circle cx="0" cy="92" r="13" fill="${p.skin}"/></g>`};
  const torso=p.kind==='woman'
   ?`<path d="M-44 110 Q-46 100 -34 98 L34 98 Q46 100 44 110 L58 250 Q0 262 -58 250Z" fill="${p.shirt}"/>
@@ -82,8 +82,9 @@ function person(o={}){
   <ellipse cx="0" cy="300" rx="70" ry="12" fill="rgba(31,42,68,.12)"/>
   ${legs}
   <ellipse cx="-22" cy="292" rx="24" ry="11" fill="${p.shoes}"/><ellipse cx="22" cy="292" rx="24" ry="11" fill="${p.shoes}"/>
-  ${arm(-1,p.la,p.shirt2)}${arm(1,p.ra,p.shirt2)}
+  ${p.kind==='woman'?'':arm(-1,p.la,p.shirt2)+arm(1,p.ra,p.shirt2)}
   ${torso}${vest}${tie}${badge}
+  ${p.kind==='woman'?arm(-1,p.la,p.shirt2)+arm(1,p.ra,p.shirt2):''}
   <rect x="-12" y="84" width="24" height="20" fill="${p.skinD||C.skinD}"/>
   <ellipse cx="-45" cy="50" rx="8" ry="11" fill="${p.skin}"/><ellipse cx="45" cy="50" rx="8" ry="11" fill="${p.skin}"/>
   <ellipse cx="0" cy="44" rx="46" ry="50" fill="${p.skin}"/>
