@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1080px;height:1920px;overflow:hidden;background:#fff}
+body{font-family:Inter,'DejaVu Sans',sans-serif;color:#1f2a44}
+#stage{position:absolute;inset:0;overflow:hidden}
+.abs{position:absolute;left:0;top:0;transform-origin:50% 50%;will-change:transform}
+.cap{position:absolute;left:60px;right:60px;top:110px;min-height:250px;background:#fff;border-radius:34px;
+ box-shadow:0 14px 0 rgba(31,42,68,.08),0 4px 30px rgba(31,42,68,.10);padding:38px 46px;display:flex;align-items:center;justify-content:center;text-align:center}
+.cap p{font-size:54px;font-weight:800;line-height:1.22;letter-spacing:-.5px}
+.cap .k1{color:#f08a24}.cap .k2{color:#1aa37a}.cap .k3{color:#e5484d}.cap .k4{color:#5b5bd6}
+.w{display:inline-block;transition:none}
+.badge{position:absolute;padding:16px 34px;border-radius:999px;font-weight:800;font-size:44px;color:#fff;white-space:nowrap;box-shadow:0 8px 0 rgba(0,0,0,.12)}
+.card{position:absolute;background:#fff;border-radius:30px;box-shadow:0 10px 0 rgba(31,42,68,.08),0 4px 24px rgba(31,42,68,.12);padding:30px 36px}
+.brand{position:absolute;left:60px;top:44px;font-size:30px;font-weight:800;letter-spacing:1px;color:#1f2a44;opacity:.75}
+.brand b{color:#f08a24}
+.bar{position:absolute;left:0;top:0;height:10px;background:#f08a24}
+
+.cap{background:none!important;box-shadow:none!important;left:56px;right:56px;top:96px;min-height:0;padding:0;justify-content:flex-start;text-align:left}
+.cap p{font-size:56px;line-height:1.2;color:#1f2a44}
+.cap .k1,.cap .k2{color:#e08a00}.cap .k3{color:#d6453d}.cap .k4{color:#5b5bd6}
+.brand{top:30px;font-size:26px}
+</style></head>
+<body><div id="stage"></div>
+<script>
+// ---------- timing helpers ----------
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));
+const lerp=(a,b,x)=>a+(b-a)*x;
+const eOut=x=>1-Math.pow(1-clamp(x),3);
+const eInOut=x=>{x=clamp(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2};
+const back=x=>{x=clamp(x);const c1=1.9,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2)};
+const prog=(t,t0,d=.45)=>clamp((t-t0)/d);
+// pop-in scale + fade for an element that appears at t0 (and optionally leaves at t1)
+function pop(t,t0,t1=1e9,d=.45){const i=prog(t,t0,d),o=1-prog(t,t1,.3);return {s:i<=0?0:back(i)*(o<1?lerp(.6,1,o):1),o:Math.min(clamp(i*2.5),o)}}
+function rise(t,t0,t1=1e9,dist=60,d=.5){const i=eOut(prog(t,t0,d)),o=1-prog(t,t1,.3);return {y:(1-i)*dist,o:Math.min(i,o)}}
+// absolute placed element: center at (x,y)
+function at(x,y,html,{s=1,o=1,r=0,w=null,ty=0,tx=0}={}){if(o<=0.001)return '';
+ return `<div class="abs" style="left:${x}px;top:${y}px;transform:translate(-50%,-50%) translate(${tx}px,${ty}px) rotate(${r}deg) scale(${s});opacity:${o};${w?`width:${w}px;`:''}">${html}</div>`}
+
+// ---------- palette ----------
+const C={ink:'#1f2a44',orange:'#f08a24',green:'#1aa37a',red:'#e5484d',violet:'#5b5bd6',blue:'#3b82f6',skin:'#7a4a2b',skinD:'#5e361d',yellow:'#ffc83d'};
+
+// ---------- characters ----------
+// pose: arms angles in degrees (0 = straight down, positive = outward), elbow-less arms
+// mood: smile | big | sad | worried | surprised | neutral | talk
+function person(o={}){
+ const p=Object.assign({skin:C.skin,shirt:'#1aa37a',shirt2:'#14805f',pants:'#2b3a67',hair:'#1b1b1b',shoes:'#20263a',
+   la:12,ra:-12,mood:'smile',blink:false,talk:0,kind:'man',look:0,item:'',vest:false,tie:false,glasses:false,grey:false,wrap:'',badge:false},o);
+ const eyeY=48, ex=p.look*3;
+ const eyes=p.blink?`<path d="M-22 ${eyeY} h12 M10 ${eyeY} h12" stroke="#1b1b1b" stroke-width="4" stroke-linecap="round"/>`:
+  `<ellipse cx="-16" cy="${eyeY}" rx="9" ry="${p.mood==='surprised'?12:10}" fill="#fff"/><ellipse cx="16" cy="${eyeY}" rx="9" ry="${p.mood==='surprised'?12:10}" fill="#fff"/>
+   <circle cx="${-15+ex}" cy="${eyeY+1}" r="5.2" fill="#1b1b1b"/><circle cx="${17+ex}" cy="${eyeY+1}" r="5.2" fill="#1b1b1b"/>
+   <circle cx="${-13+ex}" cy="${eyeY-1}" r="1.8" fill="#fff"/><circle cx="${19+ex}" cy="${eyeY-1}" r="1.8" fill="#fff"/>`;
+ const brows={sad:`<path d="M-26 32 L-8 28 M26 32 L8 28" stroke="#1b1b1b" stroke-width="4.5" stroke-linecap="round"/>`,
+  worried:`<path d="M-26 30 L-8 34 M26 30 L8 34" stroke="#1b1b1b" stroke-width="4.5" stroke-linecap="round" transform="scale(1,-1) translate(0,-64)"/>`,
+  surprised:`<path d="M-25 26 Q-16 19 -7 26 M25 26 Q16 19 7 26" stroke="#1b1b1b" stroke-width="4.5" fill="none" stroke-linecap="round"/>`}[p.mood]||
+  `<path d="M-25 31 Q-16 26 -7 31 M25 31 Q16 26 7 31" stroke="#1b1b1b" stroke-width="4.5" fill="none" stroke-linecap="round"/>`;
+ let mouth;
+ if(p.talk>0){const h=4+p.talk*12;mouth=`<ellipse cx="0" cy="72" rx="9" ry="${h/2}" fill="#5a1e1e"/>`}
+ else mouth={smile:`<path d="M-12 68 Q0 79 12 68" stroke="#3a1a10" stroke-width="4.5" fill="none" stroke-linecap="round"/>`,
+  big:`<path d="M-15 66 Q0 86 15 66 Z" fill="#5a1e1e"/><path d="M-11 67 Q0 71 11 67" stroke="#fff" stroke-width="4" fill="none"/>`,
+  sad:`<path d="M-11 76 Q0 67 11 76" stroke="#3a1a10" stroke-width="4.5" fill="none" stroke-linecap="round"/>`,
+  worried:`<path d="M-11 74 Q-5 70 0 74 Q5 78 11 73" stroke="#3a1a10" stroke-width="4.5" fill="none" stroke-linecap="round"/>`,
+  surprised:`<ellipse cx="0" cy="73" rx="8" ry="10" fill="#5a1e1e"/>`,
+  neutral:`<path d="M-9 71 H9" stroke="#3a1a10" stroke-width="4.5" stroke-linecap="round"/>`}[p.mood]||'';
+ let hair;
+ if(p.kind==='woman'){hair=`<path d="M-50 40 Q-56 -12 0 -16 Q56 -12 50 40 Q46 6 0 4 Q-46 6 -50 40Z" fill="${p.wrap||'#8b3fd1'}"/>
+   <path d="M-46 8 Q0 -40 46 8 Q30 -6 0 -4 Q-30 -6 -46 8Z" fill="${p.wrap||'#8b3fd1'}"/><circle cx="38" cy="-6" r="16" fill="${p.wrap||'#8b3fd1'}"/>`}
+ else if(p.grey){hair=`<path d="M-44 30 Q-46 -6 0 -8 Q46 -6 44 30 Q38 14 26 12 Q0 4 -26 12 Q-38 14 -44 30Z" fill="#cfd3dc"/>`}
+ else hair=`<path d="M-44 34 Q-48 -10 0 -10 Q48 -10 44 34 Q42 14 30 12 Q0 2 -30 12 Q-42 14 -44 34Z" fill="${p.hair}"/>`;
+ const glasses=p.glasses?`<g fill="none" stroke="#1f2a44" stroke-width="3.5"><circle cx="-16" cy="${eyeY}" r="14"/><circle cx="16" cy="${eyeY}" r="14"/><path d="M-2 ${eyeY} h4"/></g>`:'';
+ const arm=(side,ang,color)=>{const sx=side*(p.kind==='woman'?46:42);return `<g transform="translate(${sx} 118) rotate(${(side===1&&ang<-100)?ang:-side*ang})">
+   <rect x="-12" y="-8" width="24" height="96" rx="12" fill="${color}"/><circle cx="0" cy="92" r="13" fill="${p.skin}"/></g>`};
+ const torso=p.kind==='woman'
+  ?`<path d="M-44 110 Q-46 100 -34 98 L34 98 Q46 100 44 110 L58 250 Q0 262 -58 250Z" fill="${p.shirt}"/>
+    <path d="M-50 170 Q0 182 50 170 L53 192 Q0 204 -53 192Z" fill="${p.shirt2}" opacity=".7"/>`
+  :`<rect x="-46" y="98" width="92" height="112" rx="22" fill="${p.shirt}"/>
+    <path d="M-14 98 L0 116 L14 98Z" fill="${p.shirt2}"/>`;
+ const vest=p.vest?`<path d="M-46 112 Q-46 98 -30 98 L-12 98 L-12 210 L-46 210Z M46 112 Q46 98 30 98 L12 98 L12 210 L46 210Z" fill="#ff8a1f"/>
+   <rect x="-46" y="168" width="34" height="9" fill="#ffe28a"/><rect x="12" y="168" width="34" height="9" fill="#ffe28a"/>`:'';
+ const tie=p.tie?`<path d="M0 104 L-8 116 L0 170 L8 116Z" fill="${C.red}"/><path d="M-26 98 L0 128 L26 98" fill="none" stroke="#fff" stroke-width="5"/>`:'';
+ const badge=p.badge?`<rect x="18" y="128" width="20" height="26" rx="4" fill="#fff"/><rect x="21" y="134" width="14" height="4" fill="${C.blue}"/>`:'';
+ const legs=p.kind==='woman'?`<rect x="-26" y="246" width="20" height="38" rx="9" fill="${p.skin}"/><rect x="6" y="246" width="20" height="38" rx="9" fill="${p.skin}"/>`
+   :`<rect x="-36" y="200" width="32" height="88" rx="12" fill="${p.pants}"/><rect x="4" y="200" width="32" height="88" rx="12" fill="${p.pants}"/>`;
+ return `<svg width="360" height="510" viewBox="-120 -30 240 340" overflow="visible">
+  <ellipse cx="0" cy="300" rx="70" ry="12" fill="rgba(31,42,68,.12)"/>
+  ${legs}
+  <ellipse cx="-22" cy="292" rx="24" ry="11" fill="${p.shoes}"/><ellipse cx="22" cy="292" rx="24" ry="11" fill="${p.shoes}"/>
+  ${p.kind==='woman'?'':arm(-1,p.la,p.shirt2)+arm(1,p.ra,p.shirt2)}
+  ${torso}${vest}${tie}${badge}
+  ${p.kind==='woman'?arm(-1,p.la,p.shirt2)+arm(1,p.ra,p.shirt2):''}
+  <rect x="-12" y="84" width="24" height="20" fill="${p.skinD||C.skinD}"/>
+  <ellipse cx="-45" cy="50" rx="8" ry="11" fill="${p.skin}"/><ellipse cx="45" cy="50" rx="8" ry="11" fill="${p.skin}"/>
+  <ellipse cx="0" cy="44" rx="46" ry="50" fill="${p.skin}"/>
+  ${hair}${brows}${eyes}${glasses}
+  <ellipse cx="0" cy="60" rx="6" ry="4" fill="${C.skinD}" opacity=".6"/>
+  ${mouth}
+ </svg>`}
+const blinkAt=(t,seed=0)=>((t+seed)%3.7)<0.12;
+const IB=(t,o={})=>person(Object.assign({shirt:'#2f7de1',shirt2:'#2363b8',pants:'#2b3a67',badge:true,blink:blinkAt(t)},o));
+const MOM=(t,o={})=>person(Object.assign({kind:'woman',shirt:'#e5484d',shirt2:'#ffc83d',wrap:'#ffc83d',skin:'#6e4024',blink:blinkAt(t,1.3)},o));
+const DIALLO=(t,o={})=>person(Object.assign({shirt:'#4b5563',shirt2:'#374151',pants:'#374151',tie:true,glasses:true,grey:true,skin:'#5f3a22',blink:blinkAt(t,2.1)},o));
+const COLL=(t,o={})=>person(Object.assign({shirt:'#1aa37a',shirt2:'#14805f',pants:'#3b3b4f',vest:true,blink:blinkAt(t,.7),hair:'#2a1a10'},o));
+
+// ---------- icons ----------
+const I={
+ phone:(c='#1f2a44')=>`<svg width="120" height="190" viewBox="0 0 60 95"><rect x="2" y="2" width="56" height="91" rx="10" fill="${c}"/><rect x="7" y="11" width="46" height="68" rx="4" fill="#9fd3ff"/><circle cx="30" cy="86" r="3.5" fill="#fff"/></svg>`,
+ shirt:(c='#e5484d')=>`<svg width="170" height="150" viewBox="0 0 68 60"><path d="M22 2 L8 8 L0 22 L12 27 L14 22 L14 58 L54 58 L54 22 L56 27 L68 22 L60 8 L46 2 Q34 12 22 2Z" fill="${c}"/></svg>`,
+ party:()=>`<svg width="170" height="170" viewBox="0 0 68 68"><path d="M6 62 L24 14 L54 44Z" fill="${C.violet}"/><path d="M14 40 L34 34 M10 52 L42 44" stroke="#ffc83d" stroke-width="4"/><circle cx="46" cy="10" r="4" fill="${C.orange}"/><circle cx="60" cy="24" r="4" fill="${C.green}"/><circle cx="36" cy="6" r="3" fill="${C.red}"/><path d="M50 30 Q60 30 62 38" stroke="${C.red}" stroke-width="3" fill="none"/></svg>`,
+ house:()=>`<svg width="230" height="210" viewBox="0 0 92 84"><path d="M6 40 L46 6 L86 40Z" fill="${C.orange}"/><rect x="14" y="38" width="64" height="44" fill="#fff4e3"/><rect x="38" y="54" width="16" height="28" rx="2" fill="#8a5a3b"/><rect x="20" y="46" width="12" height="12" fill="#9fd3ff"/><rect x="60" y="46" width="12" height="12" fill="#9fd3ff"/></svg>`,
+ bill:(txt,c=C.red)=>`<div class="card" style="position:relative;width:640px;padding:34px 40px;text-align:left"><div style="font-size:28px;font-weight:700;color:#7a8299;letter-spacing:2px">FACTURE MÉDICALE</div><div style="height:4px;background:#eef0f5;margin:16px 0"></div><div style="font-size:30px;color:#7a8299;font-weight:600">Soins urgents</div><div style="font-size:66px;font-weight:900;color:${c};white-space:nowrap">${txt}</div></div>`,
+ wallet:(open=0)=>`<svg width="230" height="180" viewBox="0 0 92 72"><rect x="4" y="14" width="84" height="54" rx="10" fill="#8a5a3b"/><rect x="4" y="8" width="70" height="20" rx="8" fill="#a8714b" transform="rotate(${-open*14} 4 28)"/><rect x="58" y="32" width="30" height="20" rx="6" fill="#6e4024"/><circle cx="70" cy="42" r="4" fill="#ffc83d"/></svg>`,
+ coin:(s=1)=>`<svg width="${70*s}" height="${70*s}" viewBox="0 0 40 40"><circle cx="20" cy="20" r="18" fill="#ffc83d"/><circle cx="20" cy="20" r="13" fill="none" stroke="#e8a317" stroke-width="3"/><text x="20" y="26" font-size="15" font-weight="900" text-anchor="middle" fill="#c27c0e" font-family="Inter">F</text></svg>`,
+ bills:()=>`<svg width="150" height="100" viewBox="0 0 75 50"><rect x="6" y="6" width="66" height="40" rx="5" fill="#4caf7d" transform="rotate(-8 39 26)"/><rect x="3" y="4" width="66" height="40" rx="5" fill="#5cc48d"/><circle cx="36" cy="24" r="10" fill="#3e9b6a"/></svg>`,
+ hospital:()=>`<svg width="300" height="260" viewBox="0 0 120 104"><rect x="10" y="20" width="100" height="84" rx="6" fill="#fff"/><rect x="10" y="20" width="100" height="16" rx="6" fill="#dfe6f3"/><rect x="48" y="44" width="24" height="60" fill="#cfe3ff"/><rect x="22" y="48" width="18" height="16" fill="#9fd3ff"/><rect x="80" y="48" width="18" height="16" fill="#9fd3ff"/><rect x="50" y="2" width="20" height="36" rx="3" fill="${C.red}"/><rect x="42" y="10" width="36" height="20" rx="3" fill="${C.red}"/></svg>`,
+ notebook:()=>`<svg width="260" height="320" viewBox="0 0 65 80"><rect x="4" y="2" width="58" height="76" rx="6" fill="#fff" stroke="#dfe3ec" stroke-width="2"/><rect x="4" y="2" width="10" height="76" rx="4" fill="${C.orange}"/>${[18,28,38,48,58,68].map(y=>`<rect x="20" y="${y}" width="${30+(y%20)}" height="3" rx="1.5" fill="#cfd5e3"/>`).join('')}</svg>`,
+ piggy:(fill=0)=>`<svg width="320" height="260" viewBox="0 0 120 98"><defs><clipPath id="pg"><ellipse cx="58" cy="54" rx="46" ry="36"/></clipPath></defs><ellipse cx="58" cy="54" rx="46" ry="36" fill="#ffb3c7"/><rect x="0" y="${90-72*fill}" width="120" height="100" fill="#ff8fb0" clip-path="url(#pg)"/><circle cx="96" cy="50" r="12" fill="#ffb3c7"/><circle cx="94" cy="48" r="2" fill="#a14a65"/><circle cx="99" cy="48" r="2" fill="#a14a65"/><circle cx="80" cy="40" r="3.5" fill="#1f2a44"/><path d="M40 20 L48 10 L54 22Z" fill="#ff8fb0"/><rect x="36" y="84" width="10" height="14" rx="4" fill="#ff8fb0"/><rect x="70" y="84" width="10" height="14" rx="4" fill="#ff8fb0"/><rect x="48" y="20" width="22" height="5" rx="2.5" fill="#a14a65"/></svg>`,
+ calendar:(n)=>`<svg width="240" height="240" viewBox="0 0 60 60"><rect x="4" y="8" width="52" height="48" rx="8" fill="#fff" stroke="#dfe3ec" stroke-width="2"/><rect x="4" y="8" width="52" height="14" rx="6" fill="${C.red}"/><rect x="16" y="3" width="5" height="11" rx="2.5" fill="#1f2a44"/><rect x="39" y="3" width="5" height="11" rx="2.5" fill="#1f2a44"/><text x="30" y="49" font-size="24" font-weight="900" text-anchor="middle" fill="#1f2a44" font-family="Inter">${n}</text></svg>`,
+ bubble:(c=C.blue)=>`<svg width="200" height="170" viewBox="0 0 80 68"><path d="M8 6 H72 Q78 6 78 12 V44 Q78 50 72 50 H34 L18 64 L20 50 H8 Q2 50 2 44 V12 Q2 6 8 6Z" fill="${c}"/><circle cx="24" cy="28" r="4.5" fill="#fff"/><circle cx="40" cy="28" r="4.5" fill="#fff"/><circle cx="56" cy="28" r="4.5" fill="#fff"/></svg>`,
+ share:()=>`<svg width="180" height="180" viewBox="0 0 70 70"><circle cx="35" cy="35" r="33" fill="${C.green}"/><path d="M20 46 Q22 28 42 26 V18 L56 32 L42 46 V38 Q30 36 20 46Z" fill="#fff"/></svg>`,
+ heart:()=>`<svg width="120" height="110" viewBox="0 0 48 44"><path d="M24 42 L6 24 Q-2 14 6 6 Q14 -1 24 9 Q34 -1 42 6 Q50 14 42 24Z" fill="${C.red}"/></svg>`,
+ check:(c=C.green)=>`<svg width="70" height="70" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="${c}"/><path d="M11 21 L18 28 L30 13" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`,
+ cross:()=>`<svg width="70" height="70" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="${C.red}"/><path d="M13 13 L27 27 M27 13 L13 27" stroke="#fff" stroke-width="5" stroke-linecap="round"/></svg>`,
+ bed:()=>`<svg width="460" height="230" viewBox="0 0 184 92"><rect x="6" y="40" width="172" height="26" rx="8" fill="#dfe6f3"/><rect x="10" y="20" width="16" height="66" rx="6" fill="#8a9bb8"/><rect x="160" y="34" width="14" height="52" rx="6" fill="#8a9bb8"/><rect x="26" y="30" width="44" height="20" rx="10" fill="#fff"/><rect x="60" y="34" width="104" height="22" rx="10" fill="#9fd3ff"/></svg>`,
+ box:()=>`<svg width="130" height="120" viewBox="0 0 52 48"><rect x="2" y="8" width="48" height="38" rx="3" fill="#d9a066"/><rect x="2" y="8" width="48" height="10" fill="#c48a52"/><rect x="21" y="8" width="10" height="16" fill="#f1d3a8"/></svg>`,
+ scale:(tilt)=>`<svg width="520" height="360" viewBox="0 0 208 144"><rect x="100" y="20" width="8" height="112" fill="#1f2a44"/><rect x="70" y="128" width="68" height="10" rx="5" fill="#1f2a44"/><g transform="rotate(${tilt} 104 24)"><rect x="14" y="20" width="180" height="8" rx="4" fill="#1f2a44"/><path d="M24 28 L8 70 H52Z" fill="none" stroke="#1f2a44" stroke-width="2"/><path d="M184 28 L168 70 H212Z" fill="none" stroke="#1f2a44" stroke-width="2"/><path d="M6 70 H54 Q50 84 30 84 Q10 84 6 70Z" fill="${C.orange}"/><path d="M166 70 H214 Q210 84 190 84 Q170 84 166 70Z" fill="${C.green}"/></g><circle cx="104" cy="22" r="8" fill="${C.orange}"/></svg>`,
+};
+function badge(txt,bg,{fs=44}={}){return `<div class="badge" style="position:relative;background:${bg};font-size:${fs}px">${txt}</div>`}
+function chip(txt,bg='#fff',col=C.ink,fs=34){return `<div style="background:${bg};color:${col};font-weight:800;font-size:${fs}px;padding:14px 28px;border-radius:999px;white-space:nowrap;box-shadow:0 6px 0 rgba(31,42,68,.08),0 2px 14px rgba(31,42,68,.1)">${txt}</div>`}
+function bigNum(txt,col,sub=''){return `<div class="card" style="position:relative;text-align:center;padding:30px 50px"><div style="font-size:96px;font-weight:900;color:${col};letter-spacing:-2px;white-space:nowrap">${txt}</div>${sub?`<div style="font-size:32px;font-weight:700;color:#7a8299">${sub}</div>`:''}</div>`}
+
+// ---------- backgrounds ----------
+function bg(t,top,bot,ground,{sun=false,clouds=true,dark=0,city=false,rain=0}={}){
+ let h=`<div class="abs" style="width:1080px;height:1920px;background:linear-gradient(${top},${bot})"></div>`;
+ if(sun)h+=at(860,560,`<div style="width:130px;height:130px;border-radius:50%;background:${C.yellow};box-shadow:0 0 0 26px rgba(255,200,61,.25)"></div>`);
+ if(city){const b=[[60,300,170],[230,420,130],[360,260,150],[520,380,120],[640,320,170],[810,450,130],[940,300,160]];
+  h+=b.map(([x,hh,w],i)=>`<div class="abs" style="left:${x}px;top:${1500-hh}px;width:${w}px;height:${hh}px;background:rgba(31,42,68,${.07+i%2*.03});border-radius:14px 14px 0 0"></div>`).join('');
+  h+=`<div class="abs" style="left:450px;top:1240px;width:150px;height:150px;border-radius:75px 75px 0 0;background:rgba(31,42,68,.1)"></div><div class="abs" style="left:518px;top:1150px;width:14px;height:100px;background:rgba(31,42,68,.1)"></div>`}
+ if(clouds){[[0,520,1],[1,700,.8],[2,620,1.15]].forEach(([i,y,s])=>{const x=((t*18*(1+i*.3)+i*420)%1400)-200;
+  h+=at(x,y,`<svg width="${220*s}" height="${100*s}" viewBox="0 0 110 50"><path d="M20 46 Q2 46 4 32 Q6 20 22 22 Q26 4 48 6 Q66 0 74 18 Q96 14 100 32 Q104 46 86 46Z" fill="${dark>0?'#c6ccd8':'#fff'}" opacity=".95"/></svg>`)})}
+ h+=`<div class="abs" style="top:1500px;width:1080px;height:420px;background:${ground}"></div>`;
+ if(rain>0){for(let i=0;i<40;i++){const x=(i*97)%1080,y=((t*900+i*211)%1100)+500;h+=`<div class="abs" style="left:${x}px;top:${y}px;width:4px;height:34px;border-radius:2px;background:rgba(80,110,170,${.35*rain})"></div>`}}
+ if(dark>0)h+=`<div class="abs" style="width:1080px;height:1920px;background:rgba(31,42,68,${dark*.25})"></div>`;
+ return h}
+
+// ---------- captions ----------
+const SEGS=[
+[0.00,2.34,"Elle a transformé ses *connaissances* en #business# !"],
+[2.80,7.79,"Une étudiante peut-il gagner #2 millions de francs CFA# en un mois grâce à ses *connaissances universitaires* ?"],
+[8.14,9.69,"Voici l'histoire @d'Aminata@ !"],
+[10.15,12.80,"@Aminata@ est en *deuxième année de chimie* à l'université."],
+[13.26,19.03,"Un jour, alors qu'elle parcourt les *réseaux sociaux*, elle tombe sur une annonce proposant une #formation en fabrication de parfums#."],
+[19.62,22.69,"Curieuse et ambitieuse, elle décide de *s'inscrire* sans hésiter."],
+[23.25,27.01,"Le jour de la formation, @Aminata@ est surprise par la méthode de la *formatrice*."],
+[27.43,36.12,"Les ingrédients sont mélangés ~sans véritable explication scientifique~, les dosages ~ne sont pas mesurés~ avec précision et ~aucune vérification de compatibilité~ n'est effectuée."],
+[36.60,42.74,"À la fin de la formation, @Aminata@ se rend directement au *marché* pour acheter les *matières premières* nécessaires à la fabrication de ses parfums."],
+[43.17,46.09,"Mais une fois à la maison, quelque chose *l'interpelle*."],
+[46.53,53.16,"En examinant les produits achetés, elle constate que certains ~ne présentent pas les propriétés nécessaires~ pour être associés dans la formulation envisagée."],
+[53.48,58.74,"D'autres nécessitent des *précautions particulières* en raison de leur concentration et de leurs ~effets potentiels sur la peau~."],
+[59.16,62.89,"Elle décide alors de #ne rien mélanger# avant d'avoir effectué ses propres recherches."],
+[63.27,71.30,"Elle ressort ses *cours de chimie*, consulte les *fiches techniques* des matières premières et commence à étudier leur #solubilité#, leur #stabilité# et leurs ~risques d'utilisation~."],
+[73.11,76.58,"Après plusieurs heures de recherche, elle décide de *reporter ses premiers essais*."],
+[77.16,83.20,"Le lendemain matin, alors qu'elle consulte le groupe de la formation, elle découvre le ~témoignage bouleversant~ d'une participante."],
+[83.65,87.59,"En larmes, cette dernière explique avoir utilisé un mélange préparé pendant ses essais."],
+[88.06,93.55,"Après avoir appliqué le produit sur sa peau, elle a ressenti de ~fortes brûlures~ et a dû chercher une ~prise en charge médicale~."],
+[94.04,96.35,"À cet instant, @Aminata@ comprend une chose :"],
+[96.78,100.41,"fabriquer un parfum ne consiste pas simplement à mélanger des produits qui sentent bon."],
+[100.79,104.43,"Il faut aussi #comprendre ce que l'on mélange# et surtout #maîtriser les risques#."],
+[104.83,108.72,"C'est alors qu'elle décide de mettre ses *connaissances universitaires* au service de son projet."],
+[109.09,116.91,"Elle étudie les *matières premières*, respecte les *concentrations recommandées*, sélectionne des *ingrédients adaptés* à la parfumerie et réalise des *essais de formulation*."],
+[117.23,123.22,"Après plusieurs tests et ajustements, elle obtient finalement un parfum aux notes #fraîches#, #harmonieuses# et #persistantes#."],
+[123.70,125.26,"Mais @Aminata@ ne s'arrête pas là."],
+[125.77,129.91,"Elle présente sa création dans le groupe de formation et publie une *vidéo* sur les *réseaux sociaux*."],
+[130.44,133.04,"En quelques heures, les #réactions# se multiplient."],
+[133.45,137.09,"Les #commandes# affluent et plusieurs personnes souhaitent même *apprendre sa méthode*."],
+[137.48,141.31,"Elle comprend alors qu'elle vient de découvrir une véritable #opportunité commerciale#."],
+[141.72,146.99,"Elle décide d'organiser sa propre *formation en parfumerie* au prix de #100 000 F CFA# par participant."],
+[147.42,150.12,"Les #inscriptions# commencent et les demandes se multiplient."],
+[150.45,158.02,"En seulement un mois, son activité réalise un chiffre d'affaires de #2 millions de francs CFA#, alors qu'elle est toujours étudiante en *deuxième année de chimie* !"],
+[158.41,164.49,"Comme quoi, les connaissances acquises à l'université ne sont pas uniquement destinées à être utilisées dans les *bureaux* ou les *laboratoires*."],
+[164.95,170.16,"Elles peuvent aussi devenir des *solutions*, des *innovations* et surtout des #opportunités de business#."],
+[170.59,174.07,"Alors, si toi aussi tu hésites à te lancer, souviens-toi @d'Aminata@."],
+[174.44,176.53,"Ne te contente pas de suivre ce que tout le monde fait."],
+[176.92,182.35,"#Apprends#, #observe#, #réfléchis# et surtout, mets tes *compétences* au service de tes *ambitions*."],
+[182.77,185.24,"Parce que ton diplôme peut te donner accès à un emploi,"],
+[185.57,189.47,"mais tes compétences peuvent aussi te permettre de #créer ton propre emploi# !"]];
+
+// markers: *orange* #green# ~red~ @violet@
+const CHUNKS=[];
+(function(){for(const [s,e,txt] of SEGS){
+  const words=[];let cls='';
+  for(const raw of txt.split(' ')){let w=raw,c=cls;
+    const mk={'*':'k1','#':'k2','~':'k3','@':'k4'};
+    for(const m in mk){ if(w.startsWith(m)){cls=mk[m];c=cls;w=w.slice(1)} }
+    let end=false;for(const m in mk){ if(w.includes(m)){w=w.replace(m,'');end=true} }
+    words.push({w,c});if(end)cls='';}
+  // chunk ~ <= 42 chars
+  const groups=[];let g=[],len=0;
+  words.forEach((wd,i)=>{g.push(wd);len+=wd.w.length+1;const last=i===words.length-1;
+    const brk=/[.!?:,…]$/.test(wd.w)&&len>18;
+    if(len>40||brk||last){groups.push(g);g=[];len=0}});
+  const total=groups.reduce((a,g)=>a+g.reduce((b,w)=>b+w.w.length+1,0),0);
+  let cur=s;for(const g of groups){const l=g.reduce((b,w)=>b+w.w.length+1,0);const d=(e-s)*l/total;
+    let wc=cur;const ws=g.map(w=>{const wd=(d*(w.w.length+1)/l);const o={...w,t:wc};wc+=wd;return o});
+    CHUNKS.push({s:cur,e:cur+d,ws});cur+=d}
+}})();
+function caption(t){let c=null;for(const k of CHUNKS){if(t>=k.s-0.05)c=k;else break}
+ if(!c)return '';
+ // keep showing last chunk through short pauses (<1.2s), hide during long gaps
+ if(t>c.e+1.2)return '';
+ const html=c.ws.map(w=>{const a=clamp((t-w.t)/0.12);return `<span class="w ${w.c}" style="opacity:${0.18+0.82*a};transform:translateY(${(1-a)*8}px)">${w.w}</span>`}).join(' ');
+ const ap=eOut(clamp((t-c.s+0.05)/0.2));
+ return `<div class="cap" style="transform:scale(${0.96+0.04*ap})"><p>${html}</p></div>`}
+
+// ---------- scenes ----------
+const talkAmp=(t)=>Math.abs(Math.sin(t*17))*.8+.2;
+
+function wt(word,after=0){for(const c of CHUNKS)for(const w of c.ws){if(w.t>=after&&w.w.toLowerCase().replace(/[^a-z0-9à-ÿ'-]/g,'').startsWith(word.toLowerCase()))return w.t}return after}
+const AMI=(t,o={})=>person(Object.assign({kind:'woman',wrap:'#1b1b1b',shirt:'#14b8a6',shirt2:'#0f766e',skin:'#6e4024',blink:blinkAt(t,.4)},o));
+const LAB=(t,o={})=>AMI(t,Object.assign({shirt:'#ffffff',shirt2:'#e2e8f0'},o));
+const TRAINER=(t,o={})=>person(Object.assign({kind:'woman',wrap:'#f08a24',shirt:'#e5484d',shirt2:'#b91c1c',skin:'#5f3a22',blink:blinkAt(t,1.7)},o));
+const PART=(t,o={})=>person(Object.assign({kind:'woman',wrap:'#5b5bd6',shirt:'#f59e0b',shirt2:'#b45309',skin:'#7a4a2b',blink:blinkAt(t,2.6)},o));
+const GUY=(t,col,o={})=>person(Object.assign({shirt:col,shirt2:col,blink:blinkAt(t,col.length)},o));
+const tears=(t)=>[0,1].map(i=>{const p=((t*1.2)+i*.5)%1;return `<div class="abs" style="left:${i?30:-30}px;top:${-150+p*120}px;width:16px;height:24px;border-radius:50% 50% 50% 50%/60% 60% 40% 40%;background:#5bc0f8;opacity:${1-p}"></div>`}).join('');
+// warm room background (radial vignette like the channel's style)
+function room(t,{win=false,night=false,desk=false,shelf=false,tint='#f6efe4',edge='#e4d6c1',floor='#cfae86'}={}){
+ let h=`<div class="abs" style="width:1080px;height:1920px;background:radial-gradient(ellipse at 50% 55%,${tint} 0%,${tint} 35%,${edge} 100%)"></div>`;
+ if(win){h+=at(820,820,`<div style="width:280px;height:340px;background:${night?'#1f2a44':'#bfe3ff'};border:16px solid #fff;border-radius:10px;position:relative;box-shadow:0 8px 24px rgba(0,0,0,.08)"><div style="position:absolute;left:50%;top:0;bottom:0;width:12px;margin-left:-6px;background:#fff"></div><div style="position:absolute;top:50%;left:0;right:0;height:12px;margin-top:-6px;background:#fff"></div>${night?'<div style="position:absolute;right:30px;top:30px;width:50px;height:50px;border-radius:50%;box-shadow:-12px 6px 0 0 #ffe9a8"></div>':''}</div>`);
+   h+=at(650,820,`<div style="width:70px;height:420px;background:#c2410c;border-radius:12px"></div>`);h+=at(990,820,`<div style="width:70px;height:420px;background:#c2410c;border-radius:12px"></div>`)}
+ if(shelf){for(let i=0;i<2;i++){h+=at(230,760+i*170,`<div style="width:320px;height:16px;background:#a16207;border-radius:6px"></div>`);for(let k=0;k<4;k++)h+=at(120+k*70,722+i*170,bottle(['#f9a8d4','#93c5fd','#fde68a','#86efac'][(k+i)%4],.45))}}
+ h+=`<div class="abs" style="top:1500px;width:1080px;height:420px;background:${floor}"></div>`;
+ if(desk)h+=at(540,1560,`<div style="width:900px;height:40px;background:#8a5a3b;border-radius:10px"></div>`);
+ return h}
+function bottle(col='#f9a8d4',s=1,fill=1){return `<svg width="${110*s}" height="${180*s}" viewBox="0 0 55 90"><rect x="20" y="2" width="15" height="12" rx="3" fill="#d4a017"/><rect x="23" y="12" width="9" height="8" fill="#e5e7eb"/><rect x="4" y="20" width="47" height="66" rx="14" fill="rgba(255,255,255,.75)" stroke="#cbd5e1" stroke-width="2"/><rect x="7" y="${23+60*(1-fill)}" width="41" height="${60*fill}" rx="11" fill="${col}"/><rect x="12" y="30" width="6" height="34" rx="3" fill="#fff" opacity=".6"/></svg>`}
+function beaker(col='#86efac',s=1){return `<svg width="${120*s}" height="${150*s}" viewBox="0 0 60 75"><path d="M14 4 H46 M18 4 V30 L4 68 Q2 73 8 73 H52 Q58 73 56 68 L42 30 V4" fill="rgba(255,255,255,.8)" stroke="#94a3b8" stroke-width="3"/><path d="M11 50 H49 L55 68 Q56 71 52 71 H8 Q4 71 5 68Z" fill="${col}"/></svg>`}
+function phoneCard(inner,w=440,h=760){return `<div style="width:${w}px;height:${h}px;background:#1f2a44;border-radius:54px;padding:18px;box-shadow:0 18px 40px rgba(0,0,0,.18)"><div style="width:100%;height:100%;background:#fff;border-radius:40px;overflow:hidden;padding:30px 24px;text-align:left">${inner}</div></div>`}
+function msg(txt,col='#eef2f7',tc=C.ink,right=false){return `<div style="display:flex;justify-content:${right?'flex-end':'flex-start'};margin:10px 0"><div style="max-width:86%;background:${col};color:${tc};font-size:28px;font-weight:700;padding:14px 20px;border-radius:22px">${txt}</div></div>`}
+function stall(){return `<svg width="560" height="480" viewBox="0 0 140 120"><rect x="12" y="30" width="6" height="88" fill="#8a5a3b"/><rect x="122" y="30" width="6" height="88" fill="#8a5a3b"/>${[0,1,2,3,4,5,6].map(i=>`<path d="M${6+i*18} 16 h18 v16 q-9 8 -18 0z" fill="${i%2?'#fff':'#1aa37a'}"/>`).join('')}<rect x="4" y="8" width="132" height="10" rx="3" fill="#1f2a44"/><rect x="8" y="78" width="124" height="40" rx="4" fill="#d9a066"/></svg>`}
+function rowCard(title,rows,{w=820,col=C.ink}={}){return `<div class="card" style="position:relative;width:${w}px;text-align:left;padding:32px 40px">${title?`<div style="font-size:28px;font-weight:800;color:#7a8299;letter-spacing:2px;margin-bottom:6px">${title}</div>`:''}${rows}</div>`}
+function line(t,ti,txt,ok){const a=pop(t,ti);return `<div style="display:flex;align-items:center;justify-content:space-between;gap:20px;margin:16px 0;opacity:${a.o}"><span style="font-size:42px;font-weight:800">${txt}</span><span style="display:inline-block;transform:scale(${a.s})">${ok===true?I.check():ok===false?I.cross():`<span style="font-size:52px">${ok}</span>`}</span></div>`}
+function counter(t,t0,d,to,suffix=' F'){return Math.round(to*eOut(prog(t,t0,d))).toLocaleString('fr-FR')+suffix}
+function confetti(t,t0,cx=540,cy=900){let h='';for(let i=0;i<18;i++){const p=prog(t,t0,2.4);if(p>0&&p<1)h+=at(cx+Math.cos(i*1.9)*p*520,cy+Math.sin(i*2.7)*p*300+p*p*640,`<div style="width:22px;height:12px;background:${[C.orange,C.green,C.violet,C.red][i%4]};border-radius:3px"></div>`,{r:i*40+t*300,o:1-p})}return h}
+
+const SCENES=[
+// 1 hook
+{s:0,e:8.0,f:(t)=>{let h=room(t,{shelf:true});
+  h+=at(540,620,badge('CONNAISSANCES → BUSINESS',C.orange,{fs:46}),pop(t,.25));
+  h+=at(420,1300,AMI(t,{mood:'big',ra:-95,la:14}),{ty:Math.sin(t*3)*4});
+  h+=at(590,1160,bottle('#f9a8d4',1),pop(t,.6));
+  if(t>2.8){h+=at(780,900,`<div class="card" style="position:relative;text-align:center;padding:26px 40px"><div style="font-size:80px;font-weight:900;color:${C.green};white-space:nowrap">${counter(t,3.2,2.2,2000000)}</div><div style="font-size:34px;font-weight:800;color:#7a8299">en 1 mois ?</div></div>`,pop(t,3.0));
+    h+=at(820,1260,`<div style="font-size:150px;font-weight:900;color:${C.violet}">?</div>`,pop(t,wt('connaissances',5)))}
+  return h}},
+// 2 intro
+{s:8.0,e:13.1,f:(t)=>{let h=room(t,{tint:'#eef4ee',edge:'#d8e4d6',floor:'#b9cfb4'});
+  h+=at(540,760,`<div style="width:760px;height:380px;background:#24493b;border:18px solid #8a5a3b;border-radius:14px;color:#e8f5e9;font-family:'JetBrains Mono',monospace;font-size:54px;font-weight:700;display:flex;flex-direction:column;justify-content:center;padding-left:60px;gap:16px"><div style="opacity:${prog(t,10.4,.4)}">H₂O + C₂H₅OH</div><div style="opacity:${prog(t,11.0,.4)}">pH = 7</div></div>`);
+  h+=at(380,1310,AMI(t,{mood:'smile',ra:-50}));
+  h+=at(740,1200,beaker('#93c5fd',1.2),pop(t,10.6));
+  h+=at(380,1010,chip('Aminata',C.violet,'#fff',50),pop(t,8.4));
+  h+=at(540,1070,chip('2e année · Chimie',C.green,'#fff',42),pop(t,wt('deuxième',10)));
+  return h}},
+// 3 social ad
+{s:13.1,e:23.1,f:(t)=>{let h=room(t,{win:true});
+  const ins=wt('inscrire',19);
+  h+=at(330,1310,AMI(t,{mood:t>19.6?'big':'smile',ra:-80,look:1}));
+  const ad=`<div style="font-size:24px;font-weight:800;color:#7a8299">📱 Fil d'actualité</div><div style="margin-top:20px;background:#fff7ed;border-radius:24px;padding:24px;border:3px solid #fed7aa;opacity:${prog(t,wt('annonce',13),.4)}"><div style="display:flex;justify-content:center;gap:8px">${bottle('#f9a8d4',.6)}${bottle('#93c5fd',.6)}${bottle('#fde68a',.6)}</div><div style="font-size:34px;font-weight:900;margin-top:14px">Formation :<br>fabrication de parfums</div><div style="margin-top:22px;background:${t>ins?C.green:C.orange};color:#fff;font-size:32px;font-weight:900;text-align:center;padding:16px;border-radius:16px;transform:scale(${t>ins&&t<ins+.25?.92:1})">${t>ins?'Inscrite ✓':"Je m'inscris"}</div></div>`;
+  h+=at(740,1060,phoneCard(ad,440,760),rise(t,13.4));
+  if(t>19.6){h+=at(300,960,chip('Curieuse',C.violet,'#fff',36),pop(t,19.7));h+=at(320,860,chip('Ambitieuse',C.orange,'#fff',36),pop(t,20.6))}
+  return h}},
+// 4 training: messy method
+{s:23.1,e:36.4,f:(t)=>{let h=room(t,{shelf:true,tint:'#fdf3e7',edge:'#ecd9bf'});
+  h+=at(540,1430,`<div style="width:820px;height:34px;background:#8a5a3b;border-radius:10px"></div>`);
+  h+=at(330,1240,TRAINER(t,{mood:'smile',la:60+Math.sin(t*6)*25,ra:-60-Math.sin(t*6)*25,talk:t<27?0:talkAmp(t)*.6}),pop(t,23.3));
+  // random pouring
+  const tilt=Math.sin(t*4)*30;h+=at(520,1330,bottle('#f9a8d4',.7),{r:tilt});h+=at(620,1340,bottle('#93c5fd',.7),{r:-tilt});h+=at(570,1380,beaker('#c4b5fd',.8));
+  for(let i=0;i<3;i++){const p=((t*1.6)+i/3)%1;h+=at(560+Math.sin(i*3)*20,1290+p*60,`<div style="width:14px;height:20px;border-radius:50%;background:#c084fc;opacity:${1-p}"></div>`)}
+  h+=at(840,1310,AMI(t,{mood:t>25?'surprised':'neutral',look:-1,la:14,ra:t>25?-160:-14}));
+  h+=at(840,1010,`<div style="font-size:120px;font-weight:900;color:${C.red}">!?</div>`,pop(t,wt('surprise',23)));
+  const R=[[wt('sans',27),'Aucune explication scientifique'],[wt('dosages',27),'Dosages non mesurés'],[wt('aucune',27),'Compatibilité non vérifiée']];
+  h+=at(540,720,rowCard('',R.map(([ti,l])=>line(t,ti,l,false)).join(''),{w:880}),{o:prog(t,27.4,.3)});
+  return h}},
+// 5 market
+{s:36.4,e:43.0,f:(t)=>{let h=room(t,{tint:'#fff4dc',edge:'#f0d9a6',floor:'#e0b97a'});
+  h+=at(720,1240,stall());
+  [0,1,2,3,4].forEach(i=>h+=at(560+i*70,1180,bottle(['#f9a8d4','#93c5fd','#fde68a','#86efac','#fca5a5'][i],.55)));
+  h+=at(330,1310,AMI(t,{mood:'big',ra:-40}));
+  h+=at(330,900,chip('Marché',C.orange,'#fff',44),pop(t,wt('marché',36)));
+  h+=at(720,880,chip('Matières premières 🛍️','#fff',C.ink,40),pop(t,wt('matières',36)));
+  if(t>40.5)h+=at(470,1330,`<svg width="120" height="130" viewBox="0 0 60 65"><path d="M8 18 H52 L48 62 H12Z" fill="#f08a24"/><path d="M20 18 Q20 4 30 4 Q40 4 40 18" fill="none" stroke="#c2410c" stroke-width="4"/></svg>`,pop(t,40.6));
+  return h}},
+// 6 at home: problem
+{s:43.0,e:59.0,f:(t)=>{let h=room(t,{win:true,desk:true});
+  h+=at(250,1310,AMI(t,{mood:t>46.5?'worried':'surprised',ra:-150,la:14,look:1}));
+  [0,1,2,3].forEach(i=>h+=at(540+i*120,1450,bottle(['#f9a8d4','#93c5fd','#fde68a','#86efac'][i],.65),{r:0}));
+  h+=at(420,980,`<div style="font-size:130px;font-weight:900;color:${C.orange}">!</div>`,pop(t,43.6,46.4));
+  const r1=wt('certains',46),r2=wt('précautions',53),r3=wt('effets',53);
+  h+=at(560,760,rowCard('EN EXAMINANT LES PRODUITS',line(t,r1,'Incompatibles entre eux',false)+line(t,r2,'Concentration élevée','⚠️')+line(t,r3,'Risques pour la peau','⚠️'),{w:900}),rise(t,46.6));
+  return h}},
+// 7 research
+{s:59.0,e:77.0,f:(t)=>{const night=t>71;let h=room(t,{win:true,night,desk:true,tint:night?'#e8e4f0':'#f6efe4',edge:night?'#c9c3d9':'#e4d6c1'});
+  if(t<63.2){h+=at(540,760,badge('STOP : NE RIEN MÉLANGER',C.red,{fs:50}),pop(t,59.3));h+=at(540,1310,AMI(t,{mood:'neutral',la:60,ra:-60}));h+=at(800,1330,beaker('#c4b5fd',1),{o:.8});h+=at(800,1180,I.cross(),pop(t,60))}
+  else{h+=at(330,1310,AMI(t,{mood:'neutral',ra:-70,look:1}));h+=at(760,1420,I.notebook(),{s:.7*pop(t,wt('cours',63)).s,o:pop(t,wt('cours',63)).o});
+    h+=at(540,700,rowCard('ELLE ÉTUDIE',line(t,wt('cours',63),'Cours de chimie','📘')+line(t,wt('fiches',63),'Fiches techniques','📄')+line(t,wt('solubilité',63),'Solubilité','💧')+line(t,wt('stabilité',63),'Stabilité','⚖️')+line(t,wt('risques',63),"Risques d'utilisation",'⚠️'),{w:860}),rise(t,63.3,73));
+    h+=at(160,700,`<div style="width:120px;height:120px;border-radius:50%;background:#fff;border:8px solid #1f2a44;position:relative"><div style="position:absolute;left:50%;top:50%;width:6px;height:40px;background:#1f2a44;transform-origin:top;transform:rotate(${t*90}deg)"></div></div>`,{o:t>70?prog(t,70,.3):0});
+    if(t>73)h+=at(560,720,`${I.calendar('J+1')}`,pop(t,73.3));if(t>73)h+=at(560,900,chip('Essais reportés',C.orange,'#fff',40),pop(t,wt('reporter',73)))}
+  return h}},
+// 8 testimony
+{s:77.0,e:94.0,f:(t)=>{let h;
+  if(t<83.5){h=room(t,{win:true});h+=at(300,1310,AMI(t,{mood:t>80?'surprised':'neutral',ra:-80,look:1}));
+    const chat=`<div style="font-size:26px;font-weight:900;margin-bottom:12px">👥 Groupe formation parfum</div>${msg('Bonjour à toutes ☀️')}${msg('Merci pour la formation !')}<div style="opacity:${prog(t,wt('témoignage',77),.3)}">${msg('😭 Je dois vous raconter ce qui m\'est arrivé…','#fee2e2',C.red)}</div>`;
+    h+=at(740,1020,phoneCard(chat,460,720),rise(t,77.3));h+=at(860,560,chip('Le lendemain matin',C.blue,'#fff',36),pop(t,77.3))}
+  else{h=room(t,{tint:'#f1f3f8',edge:'#d6dbe6',floor:'#b6bfd0'});
+    const burn=t>wt('brûlures',88);
+    h+=at(380,1310,PART(t,{mood:'sad',la:burn?150:14,ra:-150}));h+=at(380,1310,`<div style="position:relative">${tears(t)}</div>`);
+    if(burn){h+=at(250,1290,`<div style="width:70px;height:50px;border-radius:50%;background:rgba(229,72,77,.55)"></div>`,pop(t,wt('brûlures',88)));h+=at(300,1180,`<div style="width:50px;height:40px;border-radius:50%;background:rgba(229,72,77,.5)"></div>`,pop(t,wt('brûlures',88)+.2))}
+    h+=at(760,1220,bottle('#c084fc',.9),pop(t,wt('mélange',84)));
+    h+=at(540,700,rowCard('',line(t,84,'En larmes','😢')+line(t,wt('brûlures',88),'Fortes brûlures','🔥')+line(t,wt('prise',88),'Prise en charge médicale','🏥'),{w:820}),rise(t,83.8))}
+  return h}},
+// 9 realization
+{s:94.0,e:104.7,f:(t)=>{let h=room(t,{tint:'#fff8e6',edge:'#f1dfb2'});
+  h+=at(540,1310,AMI(t,{mood:'surprised',ra:-150}));h+=at(540,1000,`<svg width="150" height="190" viewBox="0 0 60 76"><circle cx="30" cy="28" r="22" fill="${C.yellow}"/><rect x="21" y="48" width="18" height="14" rx="3" fill="#cfd5e3"/><rect x="23" y="62" width="14" height="6" rx="3" fill="#8a9bb8"/></svg>`,pop(t,94.3));
+  h+=at(540,680,rowCard('FABRIQUER UN PARFUM, C\'EST…',line(t,96.9,'Juste mélanger ce qui sent bon',false)+line(t,wt('comprendre',100),'Comprendre ce que l\'on mélange',true)+line(t,wt('maîtriser',100),'Maîtriser les risques',true),{w:920}),rise(t,94.5));
+  return h}},
+// 10 lab work
+{s:104.7,e:117.2,f:(t)=>{let h=room(t,{shelf:true,tint:'#eef6fb',edge:'#d3e4f0',floor:'#b8cfe0'});
+  h+=at(540,1450,`<div style="width:820px;height:34px;background:#94a3b8;border-radius:10px"></div>`);
+  h+=at(330,1300,LAB(t,{mood:'smile',ra:-70+Math.sin(t*2)*10}));
+  h+=at(330,1010,chip('Savoir universitaire 🎓',C.violet,'#fff',36),pop(t,wt('connaissances',104)));
+  h+=at(640,1360,beaker('#86efac',.9));h+=at(770,1360,beaker('#fde68a',.8));
+  h+=at(880,1380,`<svg width="160" height="90" viewBox="0 0 80 45"><rect x="4" y="18" width="72" height="24" rx="6" fill="#1f2a44"/><rect x="14" y="24" width="40" height="12" rx="3" fill="#86efac"/><text x="34" y="34" font-size="10" font-weight="900" text-anchor="middle" fill="#14532d" font-family="Inter">2.50 g</text><rect x="16" y="6" width="48" height="8" rx="4" fill="#94a3b8"/></svg>`,pop(t,wt('concentrations',109)));
+  h+=at(560,700,rowCard('MÉTHODE SCIENTIFIQUE',line(t,wt('matières',109),'Matières premières étudiées',true)+line(t,wt('concentrations',109),'Concentrations respectées',true)+line(t,wt('ingrédients',109),'Ingrédients adaptés',true)+line(t,wt('essais',109),'Essais de formulation',true),{w:880}),rise(t,109.2));
+  return h}},
+// 11 perfume obtained
+{s:117.2,e:123.6,f:(t)=>{let h=room(t,{tint:'#fdf0f6',edge:'#f3d3e2',floor:'#e8b9cf'});
+  const ok=wt('obtient',117);
+  h+=at(540,1050,bottle('#f472b6',2.2),pop(t,ok));
+  for(let i=0;i<8;i++){const a=t*1.5+i*.8;h+=at(540+Math.cos(a)*260,1050+Math.sin(a)*240,`<div style="font-size:44px">✨</div>`,{o:t>ok?.9:0})}
+  [[wt('fraîches',117),'Fraîches',C.blue],[wt('harmonieuses',117),'Harmonieuses',C.violet],[wt('persistantes',117),'Persistantes',C.green]].forEach(([ti,l,col],i)=>h+=at(540,620+i*0,'',{})+at(220+i*320,1450,chip(l,col,'#fff',38),pop(t,ti)));
+  h+=at(540,620,badge('PARFUM RÉUSSI !',C.orange,{fs:54}),pop(t,ok+.3));
+  return h}},
+// 12 social success
+{s:123.6,e:137.4,f:(t)=>{let h=room(t,{win:true});
+  h+=at(540,560,badge('ET CE N\'EST PAS TOUT…',C.orange,{fs:46}),pop(t,123.8,125.6));
+  h+=at(280,1310,AMI(t,{mood:'big',ra:-90}));
+  const likes=Math.round(2400*eOut(prog(t,130.5,2.6)));
+  const scr=`<div style="height:420px;border-radius:24px;background:linear-gradient(#fde2ef,#fbcfe8);display:flex;align-items:center;justify-content:center;position:relative">${bottle('#f472b6',1.1)}<div style="position:absolute;width:90px;height:90px;border-radius:50%;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;color:#fff;font-size:44px;opacity:${t<130?1:0}">▶</div></div><div style="display:flex;justify-content:space-between;margin-top:20px;font-size:32px;font-weight:900"><span style="color:${C.red}">❤ ${likes.toLocaleString('fr-FR')}</span><span>💬 ${Math.round(likes/12)}</span></div>`;
+  h+=at(720,1110,phoneCard(scr,440,640),pop(t,wt('vidéo',125)));
+  for(let i=0;i<6;i++){const p=((t-130.4)*0.6+i/6)%1;if(t>130.4)h+=at(860+Math.sin(i*2)*80,lerp(1250,650,p),I.heart(),{s:.45,o:Math.sin(p*Math.PI)})}
+  if(t>133.4){[0,1,2].forEach(i=>h+=at(660,640+i*0+i*0,'',{}));
+    const N=[[wt('commandes',133),'🛒 Nouvelle commande'],[wt('commandes',133)+.7,'🛒 Nouvelle commande'],[wt('apprendre',133),'🙋 Tu peux m\'apprendre ?']];
+    N.forEach(([ti,l],i)=>h+=at(720,1420+i*0-0+(i*0),'',{})+at(560,1440+i*0,'',{})+at(720,470+i*95,chip(l,'#fff',C.ink,34),pop(t,ti)))}
+  return h}},
+// 13 opportunity + training
+{s:137.4,e:150.4,f:(t)=>{let h=room(t,{tint:'#eefaf3',edge:'#cfead9',floor:'#a9d6bb'});
+  if(t<141.6){h+=at(540,620,badge('OPPORTUNITÉ !',C.green,{fs:60}),pop(t,wt('opportunité',137)));h+=at(540,1310,AMI(t,{mood:'big',la:150,ra:-150}));
+    h+=at(540,990,`<svg width="150" height="190" viewBox="0 0 60 76"><circle cx="30" cy="28" r="22" fill="${C.yellow}"/><rect x="21" y="48" width="18" height="14" rx="3" fill="#cfd5e3"/><rect x="23" y="62" width="14" height="6" rx="3" fill="#8a9bb8"/></svg>`,pop(t,138))}
+  else{h+=at(300,1310,AMI(t,{mood:'smile',ra:-100,talk:(t>142&&t<147)?talkAmp(t)*.5:0}));
+    h+=at(720,800,`<div class="card" style="position:relative;width:520px;text-align:center"><div style="font-size:26px;font-weight:800;color:#7a8299;letter-spacing:2px">FORMATION</div><div style="font-size:46px;font-weight:900">Parfumerie 🌸</div><div style="font-size:60px;font-weight:900;color:${C.green};margin-top:6px;opacity:${prog(t,wt('100',141),.3)}">100 000 F</div><div style="font-size:28px;font-weight:700;color:#7a8299;opacity:${prog(t,wt('100',141),.3)}">par participant</div></div>`,pop(t,141.9));
+    const n=Math.floor(clamp((t-147.4)/2.6)*20);h+=at(720,1150,`<div style="display:grid;grid-template-columns:repeat(5,70px);gap:12px">${Array.from({length:20},(_,i)=>`<div style="width:70px;height:70px;border-radius:50%;background:${i<n?['#f472b6','#60a5fa','#fbbf24','#34d399','#a78bfa'][i%5]:'rgba(31,42,68,.08)'};transform:scale(${i<n?1:.8})"></div>`).join('')}</div>`,{o:prog(t,147.2,.3)});
+    if(t>147.4)h+=at(720,1420,chip(`Inscrits : ${n}`,C.violet,'#fff',38),pop(t,147.5))}
+  return h}},
+// 14 revenue
+{s:150.4,e:158.4,f:(t)=>{let h=room(t,{tint:'#fff8e6',edge:'#f1dfb2',floor:'#e5c17e'});
+  h+=at(540,700,`<div class="card" style="position:relative;text-align:center;padding:30px 50px"><div style="font-size:30px;font-weight:800;color:#7a8299;letter-spacing:2px">CHIFFRE D'AFFAIRES · 1 MOIS</div><div style="font-size:100px;font-weight:900;color:${C.green};white-space:nowrap">${counter(t,wt('chiffre',150),2.6,2000000)}</div></div>`,pop(t,150.6));
+  h+=at(540,1310,AMI(t,{mood:'big',la:150,ra:-150}),{ty:-Math.abs(Math.sin(t*5))*12});
+  h+=at(540,960,chip('Toujours étudiante en 2e année 🎓',C.violet,'#fff',38),pop(t,wt('toujours',150)));
+  h+=confetti(t,wt('millions',150)+.4);for(let i=0;i<4;i++)h+=at(200+i*230,1480,I.bills(),pop(t,152+i*.3));
+  return h}},
+// 15 knowledge beyond offices/labs
+{s:158.4,e:170.5,f:(t)=>{let h=room(t,{tint:'#f1edff',edge:'#d9d0f5',floor:'#c4b8ec'});
+  h+=at(540,600,chip("Les connaissances de l'université…",'#fff',C.ink,40),pop(t,158.6));
+  h+=at(300,880,`<div class="card" style="position:relative;text-align:center"><div style="font-size:80px">🏢</div><div style="font-size:38px;font-weight:800">Bureaux</div></div>`,pop(t,wt('bureaux',158)));
+  h+=at(780,880,`<div class="card" style="position:relative;text-align:center"><div style="font-size:80px">🧪</div><div style="font-size:38px;font-weight:800">Laboratoires</div></div>`,pop(t,wt('laboratoires',158)));
+  if(t>164.9){[[wt('solutions',164),'Solutions','💡',C.orange],[wt('innovations',164),'Innovations','🚀',C.blue],[wt('opportunités',164),'Opportunités de business','💼',C.green]].forEach(([ti,l,e,col],i)=>h+=at(540,1120+i*130,chip(`${e} ${l}`,col,'#fff',42),pop(t,ti)))}
+  else h+=at(540,1300,AMI(t,{mood:'smile',ra:-24,la:24}));
+  return h}},
+// 16 advice
+{s:170.5,e:182.7,f:(t)=>{let h=room(t,{tint:'#fff3e0',edge:'#f3d9b1'});
+  if(t<176.8){h+=at(540,620,badge('SOUVIENS-TOI D\'AMINATA',C.violet,{fs:48}),pop(t,wt('souviens',170)));
+    // crowd walking right, Aminata going her own way
+    for(let i=0;i<6;i++){const x=((t-170.5)*90+i*190)%1300-150;h+=at(x,1360,GUY(t,'#9aa3b5',{mood:'neutral',skin:'#8d8d96'}),{s:.4,o:t>174.4?1:.0})}
+    h+=at(540,1300,AMI(t,{mood:'smile',ra:-30}),{s:.9});if(t>174.4)h+=at(540,960,chip('Ne suis pas la foule',C.red,'#fff',40),pop(t,174.5))}
+  else{h+=at(540,620,badge('À TOI DE JOUER !',C.green,{fs:52}),pop(t,176.9));
+    h+=at(540,960,rowCard('',line(t,wt('apprends',176),'Apprends','📚')+line(t,wt('observe',176),'Observe','👀')+line(t,wt('réfléchis',176),'Réfléchis','🧠')+line(t,wt('compétences',176),'Compétences → ambitions','🚀'),{w:820}),rise(t,176.9));
+    h+=at(540,1560,AMI(t,{mood:'big',ra:-150}),{s:.55})}
+  return h}},
+// 17 final
+{s:182.7,e:999,f:(t)=>{let h=room(t,{tint:'#eefaf3',edge:'#cfead9',floor:'#a9d6bb'});
+  h+=at(540,720,`<div style="display:flex;align-items:center;gap:20px">${chip('🎓 Diplôme','#fff',C.ink,44)}<span style="font-size:60px;font-weight:900">→</span>${chip('Un emploi','#fff',C.ink,44)}</div>`,pop(t,182.9));
+  h+=at(540,900,`<div style="display:flex;align-items:center;gap:20px">${chip('🛠️ Compétences',C.green,'#fff',44)}<span style="font-size:60px;font-weight:900">→</span>${chip('TON emploi',C.orange,'#fff',44)}</div>`,pop(t,wt('compétences',185)));
+  const cr=wt('créer',185);
+  h+=at(540,1310,AMI(t,{mood:'big',la:t>cr?150:14,ra:-150}),{ty:t>cr?-Math.abs(Math.sin(t*5))*12:0});
+  h+=at(780,1200,bottle('#f472b6',.9),pop(t,cr));h+=confetti(t,cr+.3);
+  return h}},
+];
+
+function render(t){
+ let h='';
+ for(let i=0;i<SCENES.length;i++){const sc=SCENES[i];if(t>=sc.s&&t<sc.e){
+   h+=sc.f(t);
+   // scene transition: quick white wipe in
+   const k=clamp((t-sc.s)/0.35);if(i>0&&k<1)h+=`<div class="abs" style="width:1080px;height:1920px;background:#fff;opacity:${1-eOut(k)}"></div>`;
+ }}
+ h+=caption(t);
+ h+=`<div class="brand">MOTION <b>POUR TOUS</b></div>`;
+ h+=`<div class="bar" style="width:${clamp(t/189.5)*1080}px"></div>`;
+ document.getElementById('stage').innerHTML=h;
+}
+window.render=render;render(0);
+</script></body></html>
