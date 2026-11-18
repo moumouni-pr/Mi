@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="fr"><head><meta charset="utf-8">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:1920px;height:1080px;overflow:hidden;background:#f5efe6}
+body{font-family:Inter,'DejaVu Sans',sans-serif;color:#1f2a44}
+#stage{position:absolute;inset:0;overflow:hidden}
+.abs{position:absolute;left:0;top:0;transform-origin:50% 50%}
+.card{background:#fff;border-radius:26px;box-shadow:0 10px 0 rgba(31,42,68,.06),0 4px 24px rgba(31,42,68,.10);padding:26px 34px}
+.chip{display:inline-block;font-weight:800;border-radius:999px;padding:12px 26px;white-space:nowrap;box-shadow:0 5px 0 rgba(31,42,68,.07),0 2px 12px rgba(31,42,68,.1)}
+.badge{display:inline-flex;align-items:center;gap:14px;background:#1f2a44;color:#fff;font-weight:900;border-radius:999px;padding:14px 34px;white-space:nowrap}
+.badge i{font-style:normal;width:48px;height:48px;border-radius:50%;background:#f5a524;color:#1f2a44;display:flex;align-items:center;justify-content:center}
+.title{font-weight:900;text-align:center;line-height:1.1;letter-spacing:-1px}
+.hl{background:#f5a524;padding:0 10px;border-radius:6px}
+.cap{position:absolute;left:760px;right:60px;top:920px;text-align:center;font-size:44px;font-weight:800;line-height:1.25}
+.cap .w{display:inline-block}
+.cap .k{background:#f5a524;border-radius:6px;padding:0 8px}
+.cap .r{background:#ffd3d3;color:#b42318;border-radius:6px;padding:0 8px}
+.brand{position:absolute;left:44px;top:30px;font-size:26px;font-weight:900;letter-spacing:1px}
+.brand b{color:#f08a24}
+.bar{position:absolute;left:0;top:0;height:8px;background:#f5a524}
+</style></head>
+<body><div id="stage"></div><div id="pres" class="abs" style="width:340px;transform-origin:50% 100%"><div style="position:absolute;left:-30px;right:-30px;bottom:-14px;height:34px;border-radius:50%;background:rgba(31,42,68,.12)"></div><img src="presentateur.png" style="width:340px;display:block;position:relative"></div><div id="over" class="abs" style="width:1920px;height:1080px"></div>
+<script>
+const clamp=(x,a=0,b=1)=>Math.max(a,Math.min(b,x));const lerp=(a,b,x)=>a+(b-a)*x;
+const eOut=x=>1-Math.pow(1-clamp(x),3);
+const eInOut=x=>{x=clamp(x);return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2};
+const back=x=>{x=clamp(x);const c1=1.9,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2)};
+const prog=(t,t0,d=.45)=>clamp((t-t0)/d);
+function pop(t,t0,t1=1e9,d=.45){const i=prog(t,t0,d),o=1-prog(t,t1,.3);return {s:i<=0?0:back(i)*(o<1?lerp(.6,1,o):1),o:Math.min(clamp(i*2.5),o)}}
+function rise(t,t0,t1=1e9,dist=50,d=.5){const i=eOut(prog(t,t0,d)),o=1-prog(t,t1,.3);return {ty:(1-i)*dist,o:Math.min(i,o)}}
+function at(x,y,html,{s=1,o=1,r=0,ty=0,tx=0}={}){if(o<=0.001)return '';
+ return `<div class="abs" style="left:${x}px;top:${y}px;transform:translate(-50%,-50%) translate(${tx}px,${ty}px) rotate(${r}deg) scale(${s});opacity:${o}">${html}</div>`}
+const C={ink:'#1f2a44',orange:'#f08a24',amber:'#f5a524',green:'#16a34a',red:'#dc2626',violet:'#5b5bd6',blue:'#2563eb',teal:'#0d9488'};
+const chip=(txt,bg='#fff',col=C.ink,fs=34)=>`<span class="chip" style="background:${bg};color:${col};font-size:${fs}px">${txt}</span>`;
+const badge=(n,txt,fs=34)=>`<span class="badge" style="font-size:${fs}px">${n?`<i>${n}</i>`:''}${txt}</span>`;
+const check=(c=C.green)=>`<svg width="52" height="52" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="${c}"/><path d="M11 21 L18 28 L30 13" stroke="#fff" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const cross=()=>`<svg width="52" height="52" viewBox="0 0 40 40"><circle cx="20" cy="20" r="19" fill="${C.red}"/><path d="M13 13 L27 27 M27 13 L13 27" stroke="#fff" stroke-width="5" stroke-linecap="round"/></svg>`;
+function line(t,ti,txt,mark){const a=pop(t,ti);return `<div style="display:flex;align-items:center;justify-content:space-between;gap:24px;margin:12px 0;opacity:${a.o}"><span style="font-size:38px;font-weight:800">${txt}</span><span style="display:inline-block;transform:scale(${a.s})">${mark===true?check():mark===false?cross():`<span style="font-size:46px">${mark}</span>`}</span></div>`}
+const card=(title,inner,w=760)=>`<div class="card" style="width:${w}px;text-align:left">${title?`<div style="font-size:24px;font-weight:800;color:#8a90a2;letter-spacing:2px;margin-bottom:6px">${title}</div>`:''}${inner}</div>`;
+const big=(txt,col=C.ink,fs=96)=>`<div class="title" style="font-size:${fs}px;color:${col};white-space:nowrap">${txt}</div>`;
+const emo=(e,fs=120)=>`<div style="font-size:${fs}px;line-height:1">${e}</div>`;
+function confetti(t,t0,cx=1310,cy=420){let h='';for(let i=0;i<20;i++){const p=prog(t,t0,2.4);if(p>0&&p<1)h+=at(cx+Math.cos(i*1.9)*p*600,cy+Math.sin(i*2.7)*p*250+p*p*520,`<div style="width:22px;height:12px;background:${[C.orange,C.green,C.violet,C.red][i%4]};border-radius:3px"></div>`,{r:i*40+t*300,o:1-p})}return h}
+function counter(t,t0,d,to,suf=' F CFA'){return Math.round(to*eOut(prog(t,t0,d))).toLocaleString('fr-FR')+suf}
+
+// ---------- captions ----------
+const SEGS=[
+[0.00,2.71,"~TES ÉTUDES NE TE GARANTISSENT PAS~ FORCÉMENT UN EMPLOI !"],
+[3.53,4.80,"Voici l'histoire de *Moustapha*."],
+[5.29,7.47,"*Moustapha* est étudiant en *première année de droit*."],
+[7.81,9.84,"Mais contrairement à beaucoup de ses camarades,"],
+[10.15,12.03,"il ne mise pas *uniquement* sur ses études."],
+[12.45,14.81,"Parallèlement à ses cours, il nourrit une *autre passion* :"],
+[15.24,16.04,"*l'informatique*."],
+[16.42,19.27,"Sur *YouTube*, il passe des heures à suivre des *tutoriels*."],
+[19.63,24.22,"Il *démonte* de vieux appareils, cherche à *comprendre* leur fonctionnement, puis essaie de les *remonter*."],
+[24.68,26.66,"Au début, ce n'est qu'une simple *curiosité*."],
+[27.00,30.26,"Mais progressivement, il devient le *génie informatique* de la maison."],
+[30.60,35.24,"Téléphones, ordinateurs et autres appareils en panne ? C'est désormais à *Moustapha* qu'on fait appel !"],
+[35.65,36.92,"Mais il ne compte pas *s'arrêter là*."],
+[37.25,41.08,"Avec l'arrivée de *l'intelligence artificielle*, il découvre de nouvelles possibilités."],
+[41.41,46.52,"Il apprend, expérimente et finit par développer son premier *logiciel de gestion* pour un restaurant."],
+[46.85,51.65,"Et devine quoi ? Le restaurant accepte de payer *150 000 F CFA* pour son travail !"],
+[52.05,55.48,"Fier de cette première réussite, *Moustapha* ne se repose pas sur ses acquis."],
+[55.81,58.39,"Il continue d'apprendre et d'améliorer ses *compétences*."],
+[58.76,62.45,"Quelques semaines plus tard, le même restaurant le sollicite pour créer son *site web*."],
+[62.79,64.90,"Il relève encore le défi avec *succès*."],
+[65.25,69.29,"Grâce au *bouche-à-oreille*, ses services commencent à être recommandés auprès d'autres entreprises."],
+[69.66,73.20,"En seulement trois mois, *Moustapha* réussit à fidéliser *15 clients*."],
+[73.60,81.65,"Mais un jour, il rencontre un client qui ~refuse de payer~ sa prestation, pensant probablement avoir affaire à un jeune inexpérimenté qu'il pourrait facilement ~intimider~."],
+[81.98,85.28,"Ce que ce client ignore, c'est que *Moustapha* étudie le *droit* !"],
+[85.59,89.50,"Il rassemble ses *preuves*, engage les *démarches nécessaires* et obtient *gain de cause*."],
+[89.80,92.53,"Il récupère son argent et obtient même une *indemnisation*."],
+[92.92,98.16,"Un an après ses débuts, *Moustapha* ouvre sa *première entreprise* dans un local de seulement *10 m²*."],
+[98.49,102.61,"Ce n'est peut-être pas un grand bureau, mais c'est le début d'une *grande aventure*."]];
+const CHUNKS=[];
+(function(){for(const [s,e,txt] of SEGS){const words=[];let cls='';
+  for(const raw of txt.split(' ')){let w=raw,c=cls;const mk={'*':'k','~':'r'};
+    for(const m in mk){if(w.startsWith(m)){cls=mk[m];c=cls;w=w.slice(1)}}
+    let end=false;for(const m in mk){if(w.includes(m)){w=w.replace(m,'');end=true}}
+    words.push({w,c});if(end)cls=''}
+  const groups=[];let g=[],len=0;
+  words.forEach((wd,i)=>{g.push(wd);len+=wd.w.length+1;const last=i===words.length-1;const brk=/[.!?:,…]$/.test(wd.w)&&len>22;
+    if(len>50||brk||last){groups.push(g);g=[];len=0}});
+  const total=groups.reduce((a,g)=>a+g.reduce((b,w)=>b+w.w.length+1,0),0);
+  let cur=s;for(const g of groups){const l=g.reduce((b,w)=>b+w.w.length+1,0);const d=(e-s)*l/total;let wc=cur;
+    const ws=g.map(w=>{const wd=d*(w.w.length+1)/l;const o={...w,t:wc};wc+=wd;return o});CHUNKS.push({s:cur,e:cur+d,ws});cur+=d}}})();
+function wt(word,after=0){for(const c of CHUNKS)for(const w of c.ws){if(w.t>=after&&w.w.toLowerCase().replace(/[^a-z0-9à-ÿ'²-]/g,'').startsWith(word.toLowerCase()))return w.t}return after}
+function caption(t){let c=null;for(const k of CHUNKS){if(t>=k.s-0.05)c=k;else break}
+ if(!c||t>c.e+1.2)return '';
+ // merge consecutive same-class words into one highlight span
+ let html='',i=0;const ws=c.ws;
+ while(i<ws.length){const cl=ws[i].c;let j=i;const parts=[];while(j<ws.length&&ws[j].c===cl&&(cl||j===i)){parts.push(ws[j]);j++;if(!cl)break}
+   const inner=parts.map(w=>{const a=clamp((t-w.t)/0.12);return `<span style="opacity:${0.25+0.75*a}">${w.w}</span>`}).join(' ');
+   html+=(cl?`<span class="w ${cl}">${inner}</span>`:inner)+' ';i=j}
+ return `<div class="cap">${html}</div>`}
+
+// ---------- presenter ----------
+const PUNCH=[0.1,3.6,15.2,27.0,46.9,49.0,69.7,82.0,92.9,98.5];
+function presenter(t){let s=1;for(const p of PUNCH){const k=t-p;if(k>0&&k<.5)s=Math.max(s,1+0.035*Math.sin(Math.PI*k/.5))}
+ const bob=Math.sin(t*1.6)*4, breathe=1+Math.sin(t*2.2)*0.004;
+ const enter=eOut(prog(t,0,.6));
+ const el=document.getElementById('pres');el.style.left=lerp(-200,380,enter)+'px';el.style.top='1048px';
+ el.style.transform=`translate(-50%,-100%) translateY(${bob}px) scale(${s},${s*breathe})`;return ''}
+function bg(t){let h='';
+ h+=at(1500,330,`<div style="width:620px;height:620px;border-radius:50%;background:#efe2cc"></div>`,{ty:Math.sin(t*.4)*10});
+ h+=at(380,620,`<div style="width:560px;height:560px;border-radius:50%;background:#f0e5d3"></div>`,{ty:Math.cos(t*.35)*10});
+ h+=`<div class="abs" style="top:1040px;width:1920px;height:40px;background:#e8dccb"></div>`;
+ for(let i=0;i<9;i++)h+=at(1700+(i%3)*22,180+Math.floor(i/3)*22,`<div style="width:8px;height:8px;border-radius:50%;background:#e2d3bb"></div>`);
+ return h}
+
+const X=1310; // content center
+const SCENES=[
+{s:0,e:3.35,f:t=>at(X,330,big('TES ÉTUDES','#1f2a44',104),pop(t,.1))+at(X,460,big('<span class="hl">≠ EMPLOI GARANTI</span>','#1f2a44',84),pop(t,1.0))+at(X,700,`<div style="position:relative">${card('',`<div style="font-size:30px;font-weight:800;color:#8a90a2;letter-spacing:3px">DIPLÔME</div><div style="font-size:56px;font-weight:900">🎓 Licence</div>`,380)}<div style="position:absolute;right:-26px;top:-26px">${cross()}</div></div>`,{...pop(t,1.6),r:-4})},
+{s:3.35,e:7.7,f:t=>at(X,300,badge('','L\'HISTOIRE DE MOUSTAPHA',40),pop(t,3.6))+at(X,520,card('PROFIL',`<div style="font-size:54px;font-weight:900">⚖️ Étudiant en droit</div><div style="font-size:40px;font-weight:800;color:${C.orange};margin-top:6px">1re année</div>`,620),pop(t,wt('première',5)))},
+{s:7.7,e:12.3,f:t=>{const a=wt('uniquement',10);return at(1040,420,card('SES CAMARADES',`<div style="font-size:90px;text-align:center">📚</div><div style="font-size:38px;font-weight:800;text-align:center">Études seulement</div>`,420),pop(t,8.0))+at(1580,420,card('MOUSTAPHA',`<div style="font-size:90px;text-align:center">📚 + ❓</div><div style="font-size:38px;font-weight:800;text-align:center;color:${C.orange}">Pas uniquement</div>`,420),pop(t,a))}},
+{s:12.3,e:16.3,f:t=>at(X,300,chip('Une autre passion…','#fff',C.ink,44),pop(t,12.6))+at(X,560,`<div style="display:flex;align-items:center;gap:30px">${emo('💻',170)}${big('INFORMATIQUE',C.blue,96)}</div>`,pop(t,15.25))},
+{s:16.3,e:24.5,f:t=>{let h='';
+  const vid=`<div class="card" style="width:560px;padding:18px"><div style="height:280px;border-radius:18px;background:linear-gradient(135deg,#1f2a44,#334155);display:flex;align-items:center;justify-content:center;position:relative"><div style="width:110px;height:78px;border-radius:22px;background:#ef4444;display:flex;align-items:center;justify-content:center"><div style="width:0;height:0;border-left:34px solid #fff;border-top:20px solid transparent;border-bottom:20px solid transparent;margin-left:8px"></div></div><div style="position:absolute;left:16px;right:16px;bottom:14px;height:8px;border-radius:4px;background:#475569"><div style="height:100%;width:${clamp((t-16.4)/8)*100}%;background:#ef4444;border-radius:4px"></div></div></div><div style="font-size:32px;font-weight:900;margin-top:14px">Tutoriel : réparer un téléphone</div><div style="font-size:26px;font-weight:700;color:#8a90a2">⏱ des heures de vidéos</div></div>`;
+  h+=at(1000,430,vid,pop(t,16.5));
+  const steps=[[wt('démonte',19),'🪛','Démonter'],[wt('comprendre',19),'🔍','Comprendre'],[wt('remonter',19),'🔧','Remonter']];
+  steps.forEach(([ti,e,l],i)=>h+=at(1580,250+i*170,`<div class="card" style="display:flex;align-items:center;gap:20px;width:440px;padding:20px 28px"><span style="font-size:58px">${e}</span><span style="font-size:40px;font-weight:900">${l}</span></div>`,pop(t,ti)));
+  return h}},
+{s:24.5,e:35.5,f:t=>{let h='';
+  if(t<27){h+=at(X,420,`<div style="display:flex;align-items:center;gap:24px">${emo('🤔',150)}${chip('Simple curiosité','#fff',C.ink,52)}</div>`,pop(t,24.8))}
+  else if(t<30.5){h+=at(X,300,badge('','GÉNIE INFORMATIQUE',46),pop(t,wt('génie',27)));h+=at(X,560,`<div style="display:flex;align-items:center;gap:20px">${emo('🏠',150)}${chip('de la maison',C.amber,C.ink,48)}</div>`,pop(t,wt('maison',27)))}
+  else{const D=[[30.7,'📱','Téléphones'],[31.5,'💻','Ordinateurs'],[32.4,'🖨️','Autres appareils']];
+    D.forEach(([ti,e,l],i)=>h+=at(940+i*370,360,`<div class="card" style="text-align:center;width:320px"><div style="font-size:100px">${e}</div><div style="font-size:34px;font-weight:900">${l}</div><div style="margin-top:8px">${chip('En panne',t>wt('appel',33)?C.green:C.red,'#fff',26).replace('En panne',t>wt('appel',33)?'Réparé ✓':'En panne')}</div></div>`,pop(t,ti)));
+    h+=at(X,640,chip('📞 « Appelle Moustapha ! »',C.blue,'#fff',42),pop(t,wt('appel',33)))}
+  return h}},
+{s:35.5,e:46.7,f:t=>{let h='';
+  if(t<41.3){h+=at(X,250,chip('Et ce n\'est pas tout…','#fff',C.ink,40),pop(t,35.7));
+    h+=at(X,520,`<div style="display:flex;align-items:center;gap:30px">${emo('🤖',170)}<div>${big('INTELLIGENCE',C.violet,84)}${big('ARTIFICIELLE',C.violet,84)}</div></div>`,pop(t,wt("l'intelligence",37)))}
+  else{h+=at(980,300,chip('Apprend ✓',C.green,'#fff',36),pop(t,41.5));h+=at(980,390,chip('Expérimente ✓',C.green,'#fff',36),pop(t,wt('expérimente',41)));
+    const rows=[['Commandes','12'],['Stock','OK'],['Caisse','45 000 F']];
+    const win=`<div class="card" style="width:640px;padding:0;overflow:hidden"><div style="background:#1f2a44;color:#fff;padding:14px 22px;font-size:26px;font-weight:800;display:flex;gap:10px;align-items:center"><span style="width:14px;height:14px;border-radius:50%;background:#ef4444;display:inline-block"></span><span style="width:14px;height:14px;border-radius:50%;background:#f59e0b;display:inline-block"></span><span style="width:14px;height:14px;border-radius:50%;background:#22c55e;display:inline-block"></span>&nbsp;Logiciel de gestion · Restaurant 🍽️</div><div style="padding:20px 28px">${rows.map((r,i)=>`<div style="display:flex;justify-content:space-between;font-size:34px;font-weight:800;padding:12px 0;border-bottom:2px solid #eef0f5;opacity:${prog(t,wt('logiciel',41)+.3+i*.35,.3)}"><span>${r[0]}</span><span style="color:${C.teal}">${r[1]}</span></div>`).join('')}</div></div>`;
+    h+=at(1500,520,win,pop(t,wt('logiciel',41)))}
+  return h}},
+{s:46.7,e:52.0,f:t=>{const p=wt('150',47);return at(X,260,chip('Et devine quoi ? 😮','#fff',C.ink,46),pop(t,46.9))+at(X,500,card('',`<div style="font-size:28px;font-weight:800;color:#8a90a2;letter-spacing:2px;text-align:center">PAIEMENT DU RESTAURANT</div><div style="font-size:110px;font-weight:900;color:${C.green};text-align:center;white-space:nowrap">${counter(t,p,1.6,150000)}</div>`,820),pop(t,p-.2))+at(1680,380,check(),{...pop(t,p+1.6),s:pop(t,p+1.6).s*1.6})+confetti(t,p+1.2)}},
+{s:52.0,e:58.6,f:t=>{const sk=clamp((t-55.9)/2.4);return at(1060,420,`<div style="text-align:center">${emo('🏅',170)}${chip('Première réussite',C.amber,C.ink,40)}</div>`,pop(t,52.3))+at(1600,420,card('COMPÉTENCES',['Code','IA','Design'].map((l,i)=>`<div style="font-size:30px;font-weight:800;margin-top:12px">${l}</div><div style="height:22px;border-radius:11px;background:#eef0f5;overflow:hidden"><div style="height:100%;width:${40+i*5+sk*(45-i*5)}%;background:${C.teal}"></div></div>`).join(''),440),pop(t,55.9))}},
+{s:58.6,e:65.1,f:t=>{const w=wt('site',59);return at(X,270,chip('Quelques semaines plus tard…','#fff',C.ink,40),pop(t,58.8))+at(X,560,`<div class="card" style="width:760px;padding:0;overflow:hidden"><div style="background:#e5e7eb;padding:12px 20px;font-size:24px;font-weight:700;color:#475569">🔒 restaurant-en-ligne.com</div><div style="padding:24px"><div style="height:${110*eOut(prog(t,w,.6))}px;border-radius:14px;background:linear-gradient(90deg,#f97316,#f5a524)"></div><div style="display:flex;gap:16px;margin-top:16px">${[0,1,2].map(i=>`<div style="flex:1;height:${90*eOut(prog(t,w+.5+i*.3,.5))}px;border-radius:12px;background:#fde9cf"></div>`).join('')}</div></div></div>`,pop(t,w))+at(1640,780,chip('Défi relevé ✓',C.green,'#fff',40),pop(t,wt('succès',62)))}},
+{s:65.1,e:73.5,f:t=>{let h='';const b=wt('bouche',65);
+  h+=at(X,300,`<div style="width:170px;height:170px;border-radius:50%;background:${C.amber};display:flex;align-items:center;justify-content:center;font-size:44px;font-weight:900">M.</div>`,pop(t,65.3));
+  const n=t<69.6?6:15;
+  for(let i=0;i<15;i++){const ang=i/15*Math.PI*2-Math.PI/2,ti=i<6?b+.4+i*.35:wt('fidéliser',69)+(i-6)*.18;const x=X+Math.cos(ang)*(i<6?300:420),y=300+Math.sin(ang)*(i<6?180:240);
+    h+=`<svg class="abs" width="1920" height="1080" style="opacity:${prog(t,ti,.3)*.5}"><line x1="${X}" y1="300" x2="${x}" y2="${y}" stroke="#c9b48f" stroke-width="3" stroke-dasharray="8 8"/></svg>`;
+    h+=at(x,y,`<div style="width:74px;height:74px;border-radius:50%;background:#fff;display:flex;align-items:center;justify-content:center;font-size:40px;box-shadow:0 4px 12px rgba(0,0,0,.08)">${i<6?'🏢':'🤝'}</div>`,pop(t,ti))}
+  h+=at(X,700,chip(t<69.6?'🗣️ Bouche-à-oreille':`${Math.min(15,Math.round(15*eOut(prog(t,69.8,2.6))))} clients fidèles en 3 mois`,t<69.6?'#fff':C.green,t<69.6?C.ink:'#fff',44),pop(t,t<69.6?b:69.7));
+  return h}},
+{s:73.5,e:81.95,f:t=>{const r=wt('refuse',73),j=wt('jeune',73),im=wt('intimider',73);
+  return at(1050,430,card('FACTURE',`<div style="font-size:40px;font-weight:900">Prestation informatique</div><div style="display:flex;justify-content:space-between;align-items:center;margin-top:16px"><span style="font-size:34px;font-weight:800;color:#8a90a2">Statut</span>${chip(t>r?'IMPAYÉE':'En attente',t>r?C.red:'#eef0f5',t>r?'#fff':C.ink,30)}</div>`,520),pop(t,73.8))
+   +at(1620,330,`<div style="text-align:center">${emo('😠',150)}${chip('Client',C.ink,'#fff',34)}</div>`,pop(t,r-.2))
+   +at(1620,640,`<div class="card" style="font-size:36px;font-weight:800;padding:20px 28px">« Un jeune inexpérimenté… »</div>`,pop(t,j))
+   +at(1050,750,chip('⚠️ Tentative d\'intimidation',C.red,'#fff',36),pop(t,im))}},
+{s:81.95,e:92.85,f:t=>{let h='';
+  if(t<85.5){h+=at(X,300,chip('Ce que le client ignore…','#fff',C.ink,42),pop(t,82.1));h+=at(X,560,`<div style="display:flex;align-items:center;gap:26px">${emo('⚖️',170)}${big('IL ÉTUDIE<br><span class="hl">LE DROIT</span> !',C.ink,84)}</div>`,pop(t,wt('droit',82)))}
+  else{h+=at(1080,460,card('LA RIPOSTE',line(t,wt('preuves',85),'Preuves rassemblées','📁')+line(t,wt('démarches',85),'Démarches engagées','📝')+line(t,wt('gain',85),'Gain de cause','⚖️'),600),rise(t,85.6));
+    h+=at(1640,360,chip('Argent récupéré ✓',C.green,'#fff',38),pop(t,wt('récupère',89)));h+=at(1640,470,chip('+ Indemnisation ✓',C.amber,C.ink,38),pop(t,wt('indemnisation',89)))}
+  return h}},
+{s:92.85,e:98.4,f:t=>{const e=wt('entreprise',93),m=wt('10',93);return at(X,240,badge('','1 AN PLUS TARD',42),pop(t,93.0))
+   +at(1050,560,`<div style="text-align:center">${emo('🏢',170)}${chip('Sa première entreprise',C.blue,'#fff',38)}</div>`,pop(t,e))
+   +at(1620,560,`<div style="width:300px;height:300px;border:8px dashed ${C.orange};border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:84px;font-weight:900;color:${C.orange};background:#fff8ec">10 m²</div>`,pop(t,m))}},
+{s:98.4,e:999,f:t=>{const g=wt('grande',98);return at(X,300,`<div style="display:flex;align-items:center;gap:20px">${chip('Petit bureau','#fff',C.ink,46)}<span style="font-size:70px;font-weight:900">→</span></div>`,pop(t,98.6))
+   +at(X,540,`<div style="display:flex;align-items:center;gap:26px">${emo('🚀',170)}${big('<span class="hl">GRANDE AVENTURE</span>',C.ink,92)}</div>`,pop(t,g))+confetti(t,g+.3)}},
+];
+function render(t){let h=bg(t);
+ for(let i=0;i<SCENES.length;i++){const sc=SCENES[i];if(t>=sc.s&&t<sc.e){const k=clamp((t-sc.s)/0.3);
+   h+=`<div class="abs" style="width:1920px;height:1080px;opacity:${i>0?eOut(k):1};transform:translateY(${i>0?(1-eOut(k))*20:0}px)">${sc.f(t)}</div>`}}
+ presenter(t);let o=caption(t);
+ o+=`<div class="brand">MOTION <b>POUR TOUS</b></div><div class="bar" style="width:${clamp(t/102.6)*1920}px"></div>`;
+ document.getElementById('stage').innerHTML=h;document.getElementById('over').innerHTML=o}
+window.render=render;render(0);
+</script></body></html>
