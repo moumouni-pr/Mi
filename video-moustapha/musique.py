@@ -1,5 +1,5 @@
 import numpy as np, soundfile as sf, sys
-SR=44100; DUR=104.0; BPM=92; beat=60/BPM; bar=4*beat
+SR=44100; DUR=107.0; BPM=92; beat=60/BPM; bar=4*beat
 N=int(SR*DUR); L=np.zeros(N); R=np.zeros(N)
 def f(m): return 440*2**((m-69)/12)
 def lp(x,a):  # one-pole lowpass
